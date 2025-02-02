@@ -70,7 +70,7 @@ async def on_message(message):
     #     user = await bot.fetch_user(407695710058971138)
     #     await user.send("I am inside your walls")
     #     await message.channel.send("Nice!")
-
+'''
     # 65
     if " 65 " in message.content or message.content.endswith(" 65") or message.content.startswith("65 "):
         await message.channel.send(
@@ -90,7 +90,7 @@ async def on_message(message):
 
     # Ensure other commands still work
     await bot.process_commands(message)
-
+'''
 
 # DOCUMENTATION STUFF
 sorted_doc_names = {
