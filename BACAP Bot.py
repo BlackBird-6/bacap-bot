@@ -33,14 +33,14 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
-    print(f"HELLO I AM WORKING MY NAME IS {bot.user}")
+    logging.info(f"HELLO I AM WORKING MY NAME IS {bot.user}")
 
     # sync commands
     try:
         synced_commands = await bot.tree.sync()
-        print(f"Synced {len(synced_commands)} commands.\n")
+        logging.info(f"Synced {len(synced_commands)} commands.\n")
     except Exception as e:
-        print("Uh oh! An error occured while syncing application commands:", e)
+        logging.error("Uh oh! An error occured while syncing application commands:", exc_info=e)
 
     # receive sheet info to let bot actually use the api
     # stores into dict
@@ -181,8 +181,7 @@ def find_children():
                 advs[parent_id]["Children"] = child_name
 
         except Exception as e:
-            print(f"WARNING: Advancement {parent_name} NOT FOUND!")
-            print(e)
+            logging.warning(f"Advancement {parent_name} NOT FOUND!", exc_info = e)
 
     # for a in advs:
     #     children = a["Children"]
@@ -205,13 +204,13 @@ def access_sheet(sheet_key):
     try:
         gc = gspread.service_account(filename="Text/google_auth.json")
         sheet = gc.open_by_key(sheet_key)
-        print(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
+        logging.info(f"Sheet {sheet} was opened successfully")
 
         for worksheet in sheet.worksheets():
             if worksheet.title == "Introduction" or worksheet.title == "Terralith":
                 continue
             records = worksheet.get_all_records(head=1)
-            print(f"Fetched {len(records)} records from sheet: {worksheet.title}")
+            logging.info(f"Fetched {len(records)} records from sheet: {worksheet.title}")
 
             grab_more_info = False
 
@@ -241,7 +240,7 @@ def access_sheet(sheet_key):
 
                 row["adv_tab"] = worksheet.title
                 advs.append(row)
-            print(f"Fetched {len(advs)} advancements from {sheet.title}")
+            logging.info(f"Fetched {len(advs)} advancements from {sheet.title}")
 
         for i, adv in enumerate(advs):
             name = adv["Advancement Name"]
@@ -259,7 +258,7 @@ def access_sheet(sheet_key):
         # print(additional_adv_info)
 
     except Exception as e:
-        print(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
+        logging.error(f"An error occured while loading sheet {sheet} :sadcave:", exc_info = e)
 
 
 # open trophy sheet if possible
@@ -273,11 +272,11 @@ def access_trophy_sheet(trophy_sheet_key):
     try:
         gc = gspread.service_account(filename="Text/google_auth.json")
         sheet = gc.open_by_key(trophy_sheet_key)
-        print(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
+        logging.info(f"Sheet {sheet} was opened successfully")
 
         for worksheet in sheet.worksheets():
             records = worksheet.get_all_records(head=1)
-            print(f"Fetched {len(records)} records from sheet: {worksheet.title}")
+            logging.info(f"Fetched {len(records)} records from sheet: {worksheet.title}")
 
             # Truncate tab (not necessary)
             for trophy in records:
@@ -290,10 +289,10 @@ def access_trophy_sheet(trophy_sheet_key):
             for idx, trophy in enumerate(trophy_data):
                 trophy_index[trophy['Advancement']] = idx
 
-        print(f"Fetched {len(trophy_data)} sections of trophies from the sheet.")
+        logging.info(f"Fetched {len(trophy_data)} sections of trophies from the sheet.")
         # print(f"Trophy Indexes: {trophy_index}")
     except Exception as e:
-        print(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
+        logging.error(f"An error occured while loading sheet {sheet} :sadcave:", exc_info = e)
 
 
 ## REFRESH ADVANCEMENT SHEET
@@ -318,7 +317,6 @@ async def refresh(interaction: discord.Interaction):
     except Exception as e:
         # Send an error message if something went wrong
         await interaction.followup.send(f"*Uh oh! An error occurred while reloading all advancements.*\nError: **{e}**")
-
 
 ## REFRESH TROPHY SHEET
 @bot.tree.command(name="refresh_trophies", description="Refreshes and reloads all trophies into bot.")
@@ -635,9 +633,9 @@ async def tab(interaction: discord.Interaction, tab: str):
     }
     try:
         color = embed_colors[tab]
-    except Exception as e:
+    except KeyError:
         color = 0xff0000
-        print(e)
+        logging.warn("Exception when picking color for a tab", exc_info = e)
 
     # filter out advs by whatever tab they just put in
     filtered_advs = [adv for adv in advs if adv["adv_tab"].lower() == tab.lower()]
