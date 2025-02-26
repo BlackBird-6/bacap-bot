@@ -23,7 +23,7 @@ from discord.ui import Button, View
 import gspread
 
 # log
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format = "[%(asctime)s] %(name)s - %(levelname)s: %(message)s")
 
 ## BOT STUFF
 
