@@ -37,7 +37,7 @@ async def on_ready():
 
     # sync commands
     try:
-        synced_commands = await bot.tree.sync()
+        await bot.tree.sync()
         logging.info(f"Synced {len(synced_commands)} commands.\n")
     except Exception as e:
         logging.error("Uh oh! An error occured while syncing application commands:", exc_info=e)
@@ -290,7 +290,6 @@ def access_trophy_sheet(trophy_sheet_key):
                 trophy_index[trophy['Advancement']] = idx
 
         logging.info(f"Fetched {len(trophy_data)} sections of trophies from the sheet.")
-        # print(f"Trophy Indexes: {trophy_index}")
     except Exception as e:
         logging.error(f"An error occured while loading sheet {sheet} :sadcave:", exc_info = e)
 
@@ -559,7 +558,6 @@ async def get_advancement(interaction: discord.Interaction, advancement_search: 
         await embed_advancement(interaction, advancement)
 
     except Exception as e:
-
         embed = discord.Embed(
             title="Advancement Not Found!",
             description=f"*The advancement **{advancement_search}** could not be found. Please try again. {e}*",
