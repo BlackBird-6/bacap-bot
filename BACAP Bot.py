@@ -294,11 +294,13 @@ def access_trophy_sheet(trophy_sheet_key):
     except Exception as e:
         logging.error(f"An error occured while loading sheet {sheet} :sadcave:", exc_info = e)
 
-
+# terrible and unsafe
+"""
 ## REFRESH ADVANCEMENT SHEET
 @bot.tree.command(name="refresh_advancements", description="Refreshes and reloads all advancements into bot.")
 async def refresh(interaction: discord.Interaction):
     # Check if the user has admin permissions
+    #... where? in their own server? TERRIBLE
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("**You do not have permission to run this command.**", ephemeral=True)
         return
@@ -340,7 +342,7 @@ async def refresh(interaction: discord.Interaction):
     except Exception as e:
         # Send an error message if something went wrong
         await interaction.followup.send(f"*Uh oh! An error occurred while reloading all trophies.*\nError: **{e}**")
-
+"""
 
 # # menacing bot status loop
 # bot_statuses = cycle([":realisiticcave:", "You're a clown!", "Use /advancement", "saladbowls is a loser"])
