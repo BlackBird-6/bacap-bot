@@ -62,8 +62,8 @@ desc = "Provided below is a link to the official BACAP documentation!\nhttps://d
 # Event listener for messages
 @bot.event
 async def on_message(message):
-    # Avoid responding to bot's own messages
-    if message.author == bot.user:
+    # Ignore all bot accounts (bot itself included)
+    if message.author.bot:
         return
 
     # if message.content == "a":
