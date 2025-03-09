@@ -1,7 +1,8 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-01-21
+Last Updated: 2025-03-09
+Version: 1.0r3
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
@@ -295,12 +296,14 @@ def access_trophy_sheet(trophy_sheet_key):
     except Exception as e:
         print(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
 
+# refresh admin fix
+you_have_rights = {407695710058971138, 131972834695184385, 360894618734428160}
 
 ## REFRESH ADVANCEMENT SHEET
 @bot.tree.command(name="refresh_advancements", description="Refreshes and reloads all advancements into bot.")
 async def refresh(interaction: discord.Interaction):
     # Check if the user has admin permissions
-    if not interaction.user.guild_permissions.administrator:
+    if interaction.user.id not in you_have_rights:
         await interaction.response.send_message("**You do not have permission to run this command.**", ephemeral=True)
         return
 
@@ -324,7 +327,7 @@ async def refresh(interaction: discord.Interaction):
 @bot.tree.command(name="refresh_trophies", description="Refreshes and reloads all trophies into bot.")
 async def refresh(interaction: discord.Interaction):
     # Check if the user has admin permissions
-    if not interaction.user.guild_permissions.administrator:
+    if interaction.user.id not in you_have_rights:
         await interaction.response.send_message("**You do not have permission to run this command.**")
         return
 
