@@ -1,30 +1,236 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-03-09
-Version: 1.0r3
+Last Updated: 2025-04-03
+Current Version: v1.1
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
+
+=== changelog v1.1 ===
+- updated versions command to include new version bacap 1.18.2
+- added several thumbnails and pictures for some commands, more will come soon
+- major internal rework of button logic and handling
+-- we are currently aware of a bug with the advancement's button logic where it doesn't time out for some reason
+
+- added logging and removed print statements
+- made embeds a bit neater with emojis
+- optimizations here and there
+
+v1.0r3
+- fixed being able to run any refresh commands if you're an admin on a server with the bot (thank u p1k0chu)
+
+v1.0r2
+- reactive messages disabled due to bot spam/abuse
+
+- i still can't believe it's not butter
+=== end of changelog ===
+
+
 © 2025. "The BACAP Bot" All rights reserved.
 '''
 
+# ALL IMPORTS
 import random
 import re
 
-# import
 import discord
 from discord import app_commands
 from discord.ext import commands
 import logging
-from discord import ui
 from discord.ui import Button, View
 
 import gspread
 
-# log
+import os
+
+# image function for preloading images
+image_cache = {}
+
+def load_images():
+    image_folder = "images/"
+    if not os.path.exists(image_folder):
+        logging.error(f"WHILE ACCESSING FOLDER {image_folder}, THERE WAS AN ERROR. :sadcave:")
+        return
+    logging.info(f"THIS MESSAGE INDICATES THAT {image_folder} WAS ACCESSED SUCCESSFULLY")
+
+    for filename in os.listdir(image_folder):
+        if filename.lower().endswith((".png")):
+            file_path = os.path.join(image_folder, filename)
+            try:
+                image_cache[filename] = discord.File(file_path, filename=filename)
+                logging.info(f"Image File Loaded: {filename}")
+            except Exception as e:
+                logging.error(f"An error occured trying to load {filename}: {e}")
+    logging.info((f"ALL IMAGES PRELOADED :cave: {len(image_cache)} images loaded."))
+
+# improved button logic handling
+def button_logic(user: discord.User, pages, color, tab, advancement=None, paginated=True):
+    class PageView(View):
+        def __init__ (self):
+            super().__init__(timeout=300)
+            self.pages = pages
+            self.page = 0
+            self.color = color
+            self.interaction_user = user
+            self.show_more_info = False
+            self.message = None
+            self.paginated = paginated
+
+            if advancement and advancement['Advancement Name'] in trophy_index.keys():
+                self.add_item(self.TrophyButton(advancement, color))
+
+            if paginated:
+                self.previous_page = Button(label="⬅️ Previous Page", style=discord.ButtonStyle.blurple, custom_id="prev_page")
+                self.next_page = Button(label="Next Page ➡️", style=discord.ButtonStyle.blurple, custom_id="next_page")
+                self.previous_page.callback = self.previous_page_callback
+                self.next_page.callback = self.next_page_callback
+                self.add_item(self.previous_page)
+                self.add_item(self.next_page)
+            
+            if not paginated and advancement:
+                self.more_info_button = Button(label="More Information", style=discord.ButtonStyle.green, custom_id="more_info_" + str(id(self)))
+                self.more_info_button.callback = self.more_info_callback
+                self.add_item(self.more_info_button)            
+            
+            self.close_button = Button(label="❌ Close", style=discord.ButtonStyle.red, custom_id="close_page")
+            self.close_button.callback = self.close_page_callback
+            self.add_item(self.close_button)
+
+        async def interaction_check(self, interaction: discord.Interaction) -> bool:
+            if interaction.user != self.interaction_user:
+                await interaction.response.send_message("❌ This is not your interaction. *Please run your own command!*",ephemeral=True)
+                return False
+            return True
+        
+        async def send_page(self, interaction):
+            embed = discord.Embed(
+                title=f"The {tab} Tab Advancements *(Page {self.page + 1}/{len(self.pages)})*",
+                color=self.color
+            )
+            for adv in self.pages[self.page]:
+                embed.add_field(
+                    name=f"**{adv['Advancement Name']}**",
+                    value=f"**Description:** {adv['Description']}",
+                    inline=False
+                )
+            self.message = interaction.message
+            await interaction.response.edit_message(embed=embed,view=self)
+
+        async def on_timeout(self):
+            if self.message:
+                for item in self.children:
+                    item.disabled = True
+                embed = discord.Embed(
+                    title="**❌ Embed Timed Out**",
+                    description="This session has *timed out* due to inactivity. Please re-run your command!",
+                    color=0xff0000
+                )
+                await self.message.edit(embed=embed,view=None)
+
+        async def previous_page_callback(self, interaction: discord.Interaction):
+            if self.page > 0:
+                self.page -= 1
+                await self.send_page(interaction)
+
+        async def next_page_callback(self, interaction: discord.Interaction):
+            if self.page < len(self.pages) - 1:
+                self.page += 1
+                await self.send_page(interaction)
+
+        async def close_page_callback(self, interaction: discord.Interaction):
+            embed = discord.Embed(
+                title="**✅ Embed Closed**",
+                description="*If you would like to see more, please re-run your command!*",
+                color=0xff0000
+            )
+            await interaction.response.edit_message(embed=embed, view=None)
+        
+        async def more_info_callback(self, interaction: discord.Interaction):
+            try:
+                if not self.show_more_info:
+                    extra_info = f"**Actual Requirements**: {advancement.get('Actual Requirements (if different)', '')}\n" if advancement.get('Actual Requirements (if different)') else ""
+                    extra_info += f"**Item Rewards**: {advancement.get('Item rewards', '')}\n" if advancement.get('Item rewards') else ""
+                    extra_info += f"**XP Rewards**: {advancement.get('XP Rewards', '')}\n" if advancement.get('XP Rewards') else ""
+                    extra_info += f"**Trophy**: {advancement.get('Trophy', '')}\n" if advancement.get('Trophy') else ""
+                    extra_info += f"**Source**: {advancement.get('Source', '').replace('_', '\\_')}\n" if advancement.get('Source') else ""
+                    extra_info += f"**Version Added**: {advancement.get('Version added', '')}\n" if advancement.get('Version added') else ""
+
+                    updated_embed = discord.Embed(
+                        title="Advancement Found!",
+                        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
+                                    f"*__{advancement['Description']}__*\n\n"
+                                    f"**Parent**: {advancement['Parent']}\n"
+                                    f"**Children**: {advancement['Children']}\n"
+                                    f"{extra_info}"
+                                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
+                        color=self.color
+                    )
+                    self.more_info_button.label = "Less Information"
+                    self.more_info_button.style = discord.ButtonStyle.red
+                    self.show_more_info = True
+                else:
+                    updated_embed = discord.Embed(
+                        title="Advancement Found!",
+                        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
+                                    f"*__{advancement['Description']}__*\n\n"
+                                    f"**Parent**: {advancement['Parent']}\n"
+                                    f"**Children**: {advancement['Children']}\n"
+                                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
+                        color=self.color
+                    )
+                    self.more_info_button.label = "More Information"
+                    self.more_info_button.style = discord.ButtonStyle.green
+                    self.show_more_info = False
+
+                await interaction.response.edit_message(embed=updated_embed, view=self)
+            except Exception as e:
+                await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
+
+        class TrophyButton(discord.ui.Button):
+            def __init__(self, advancement, color):
+                super().__init__(label="Display Trophy", style=discord.ButtonStyle.blurple)
+                self.advancement = advancement
+                self.color = color
+
+            async def callback(self, interaction: discord.Interaction):
+                try:
+                    trophy = trophy_data[trophy_index[self.advancement['Advancement Name']]]
+                    lore = re.sub(r"\s*\|\s*", "\n", trophy['Lore'])
+                    credit = trophy['Credit'].replace("_", "\_")
+
+                    updated_embed = discord.Embed(
+                        title="",
+                        description=f"# {trophy['Trophy Name']}\n"
+                                    f"*{lore}*\n\n"
+                                    f"({trophy['Item Type']})\n\n"
+                                    f"**Version**: {trophy['Version']}\n"
+                                    f"**Credit**: {credit}\n"
+                                    f"\n*Obtained from __{self.advancement['Advancement Name']}__.*",
+                        color=self.color
+                    )
+                    await interaction.response.edit_message(embed=updated_embed)
+                except Exception as e:
+                    await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
+
+    return PageView()
+
 logging.basicConfig(level=logging.INFO)
+
+
+# LOGGING
+with open("Text/logging.txt") as file:
+    log_path = file.read()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(f"{log_path}"),
+        logging.StreamHandler()
+    ]
+)
 
 ## BOT STUFF
 
@@ -34,14 +240,14 @@ bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
 @bot.event
 async def on_ready():
-    print(f"HELLO I AM WORKING MY NAME IS {bot.user}")
+    logging.info(f"HELLO I AM WORKING MY NAME IS {bot.user}")
+    load_images() # image preload
 
-    # sync commands
     try:
-        synced_commands = await bot.tree.sync()
-        print(f"Synced {len(synced_commands)} commands.\n")
+        synced_commands = await bot.tree.sync() # command sync
+        logging.info(f"Synced {len(synced_commands)} commands.\n")
     except Exception as e:
-        print("Uh oh! An error occured while syncing application commands:", e)
+        logging.error("Uh oh! An error occured while syncing application commands:", e)
 
     # receive sheet info to let bot actually use the api
     # stores into dict
@@ -61,6 +267,7 @@ desc = "Provided below is a link to the official BACAP documentation!\nhttps://d
 
 
 # Event listener for messages
+'''
 @bot.event
 async def on_message(message):
     # Avoid responding to bot's own messages
@@ -71,7 +278,7 @@ async def on_message(message):
     #     user = await bot.fetch_user(407695710058971138)
     #     await user.send("I am inside your walls")
     #     await message.channel.send("Nice!")
-'''
+
     # 65
     if " 65 " in message.content or message.content.endswith(" 65") or message.content.startswith("65 "):
         await message.channel.send(
@@ -92,8 +299,8 @@ async def on_message(message):
     # Ensure other commands still work
     await bot.process_commands(message)
 '''
+############################ DOCUMENTATION ##############################
 
-# DOCUMENTATION STUFF
 sorted_doc_names = {
     "BACAP 1.18": "https://docs.google.com/spreadsheets/d/1zlRBAkHZhoMlGBbLIvKGxY4wufVVpAhYko48QH6LDNs/edit?gid=1233183210#gid=1233183210",
     "Advancement Info Legacy": "https://modrinth.com/mod/advancementinfo",
@@ -103,9 +310,6 @@ sorted_doc_names = {
     "BACAP Trophy List": "https://docs.google.com/spreadsheets/d/1yGppfv2T5KPtFWzNq25RjlLyerbe-OjY_jnT04ON9iI/edit?usp=sharing",
     "Patreon Upcoming Features List": "https://tinyurl.com/y92mxs6r"
 }
-
-
-############################ DOCUMENTATION ##############################
 
 async def doc_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     results = []
@@ -131,10 +335,16 @@ async def doc_autocomplete(interaction: discord.Interaction, current: str) -> li
 async def show_documentation(interaction: discord.Interaction, doc_search: str):
     ephemeral = False
     try:
-        embed = discord.Embed(
-            title=f"Documentation",
-            description=f"The {doc_search} documentation may be found here:\n{sorted_doc_names[doc_search]}"
-        )
+        if doc_search in ["Advancement Info Reloaded", "Advancement Info Legacy"]:
+            embed = discord.Embed(
+                title="Documentation",
+                description=f"The {doc_search} download link may be found here:\n{sorted_doc_names[doc_search]}"
+            )
+        else:
+            embed = discord.Embed(
+                title=f"Documentation",
+                description=f"The {doc_search} documentation may be found here:\n{sorted_doc_names[doc_search]}"
+            )
     except:
         ephemeral = True
         embed = discord.Embed(
@@ -149,6 +359,7 @@ async def show_documentation(interaction: discord.Interaction, doc_search: str):
 @app_commands.describe(doc_search="Links you to any official BACAP documentation!")
 @app_commands.autocomplete(doc_search=doc_autocomplete)
 async def doc(interaction: discord.Interaction, doc_search: str):
+    logging.info(f"/doc command was ran by {interaction.user} ({interaction.user.id}) Input: {doc_search}")
     await show_documentation(interaction, doc_search)
 
 
@@ -156,6 +367,7 @@ async def doc(interaction: discord.Interaction, doc_search: str):
 @app_commands.describe(doc_search="Links you to any official BACAP documentation!")
 @app_commands.autocomplete(doc_search=doc_autocomplete)
 async def documentation(interaction: discord.Interaction, doc_search: str):
+    logging.info(f"/documentation command was ran by {interaction.user} ({interaction.user.id}) Input: {doc_search}")
     await show_documentation(interaction, doc_search)
 
 
@@ -182,8 +394,8 @@ def find_children():
                 advs[parent_id]["Children"] = child_name
 
         except Exception as e:
-            print(f"WARNING: Advancement {parent_name} NOT FOUND!")
-            print(e)
+            logging.warning(f"WARNING: Advancement {parent_name} NOT FOUND!")
+            logging.warning(e)
 
     # for a in advs:
     #     children = a["Children"]
@@ -206,13 +418,13 @@ def access_sheet(sheet_key):
     try:
         gc = gspread.service_account(filename="Text/google_auth.json")
         sheet = gc.open_by_key(sheet_key)
-        print(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
+        logging.info(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
 
         for worksheet in sheet.worksheets():
             if worksheet.title == "Introduction" or worksheet.title == "Terralith":
                 continue
             records = worksheet.get_all_records(head=1)
-            print(f"Fetched {len(records)} records from sheet: {worksheet.title}")
+            logging.info(f"Fetched {len(records)} records from sheet: {worksheet.title}")
 
             grab_more_info = False
 
@@ -242,7 +454,7 @@ def access_sheet(sheet_key):
 
                 row["adv_tab"] = worksheet.title
                 advs.append(row)
-            print(f"Fetched {len(advs)} advancements from {sheet.title}")
+            logging.info(f"Fetched {len(advs)} advancements from {sheet.title}")
 
         for i, adv in enumerate(advs):
             name = adv["Advancement Name"]
@@ -260,7 +472,7 @@ def access_sheet(sheet_key):
         # print(additional_adv_info)
 
     except Exception as e:
-        print(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
+        logging.error(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
 
 
 # open trophy sheet if possible
@@ -274,11 +486,11 @@ def access_trophy_sheet(trophy_sheet_key):
     try:
         gc = gspread.service_account(filename="Text/google_auth.json")
         sheet = gc.open_by_key(trophy_sheet_key)
-        print(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
+        logging.info(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
 
         for worksheet in sheet.worksheets():
             records = worksheet.get_all_records(head=1)
-            print(f"Fetched {len(records)} records from sheet: {worksheet.title}")
+            logging.info(f"Fetched {len(records)} records from sheet: {worksheet.title}")
 
             # Truncate tab (not necessary)
             for trophy in records:
@@ -291,22 +503,23 @@ def access_trophy_sheet(trophy_sheet_key):
             for idx, trophy in enumerate(trophy_data):
                 trophy_index[trophy['Advancement']] = idx
 
-        print(f"Fetched {len(trophy_data)} sections of trophies from the sheet.")
+        logging.info(f"Fetched {len(trophy_data)} sections of trophies from the sheet.")
         # print(f"Trophy Indexes: {trophy_index}")
     except Exception as e:
-        print(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
+        logging.error(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
 
 # refresh admin fix
 you_have_rights = {407695710058971138, 131972834695184385, 360894618734428160}
 
+
 ## REFRESH ADVANCEMENT SHEET
 @bot.tree.command(name="refresh_advancements", description="Refreshes and reloads all advancements into bot.")
 async def refresh(interaction: discord.Interaction):
-    # Check if the user has admin permissions
+    logging.info(f"/refresh_advancements command was ran by {interaction.user} ({interaction.user.id})")
+
     if interaction.user.id not in you_have_rights:
         await interaction.response.send_message("**You do not have permission to run this command.**", ephemeral=True)
         return
-
     try:
         # Defer the response to let the bot know it's working on something
         await interaction.response.defer(thinking=True)
@@ -326,11 +539,11 @@ async def refresh(interaction: discord.Interaction):
 ## REFRESH TROPHY SHEET
 @bot.tree.command(name="refresh_trophies", description="Refreshes and reloads all trophies into bot.")
 async def refresh(interaction: discord.Interaction):
-    # Check if the user has admin permissions
-    if interaction.user.id not in you_have_rights:
-        await interaction.response.send_message("**You do not have permission to run this command.**")
-        return
+    logging.info(f"/refresh_trophies command was ran by {interaction.user} ({interaction.user.id})")
 
+    if interaction.user.id not in you_have_rights:
+        await interaction.response.send_message("**You do not have permission to run this command.**",ephemeral=True)
+        return
     try:
         # Defer the response to let the bot know it's working on something
         await interaction.response.defer(thinking=True)
@@ -353,12 +566,6 @@ async def refresh(interaction: discord.Interaction):
 # @tasks.loop(seconds=600)
 # async def status_loop():
 #     await bot.change_presence(activity=discord.Game(next(bot_statuses)))
-#
-#
-# @bot.event
-# async def on_ready():
-#     print(f"HELLO I AM WORKING MY NAME IS {bot.user}")
-#     status_loop.start()
 
 # ADVANCEMENT AUTOCOMPLETE
 async def autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -381,8 +588,44 @@ async def autocomplete(interaction: discord.Interaction, current: str) -> list[a
                 results.append(choice)
     return results
 
-
 async def embed_advancement(interaction: discord.Interaction, advancement: str):
+    embed_colors = {
+        "B&C Advancements": 0xccac66,
+        "Farming": 0xccac66,
+        "Mining": 0xb7b7b7,
+        "Building": 0xf9cb9c,
+        "Animals": 0xb6d7a8,
+        "Monsters": 0x93af90,
+        "Weaponry": 0x999999,
+        "Redstone": 0x999999,
+        "Biomes": 0xf3f3f3,
+        "Adventure": 0xfff2cc,
+        "Enchanting": 0x000000,
+        "Statistics": 0xe69138,
+        "Nether": 0xe06666,
+        "Potions": 0xffd966,
+        "End": 0xfff2cc,
+        "Super Challenges": 0x666666
+    }
+    try:
+        color = embed_colors[advancement["adv_tab"]]
+    except Exception as e:
+        color = 0xffffff
+    
+    embed = discord.Embed(
+        title="Advancement Found!",
+        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
+                    f"*__{advancement['Description']}__*\n\n"
+                    f"**Parent**: {advancement['Parent']}\n"
+                    f"**Children**: {advancement['Children']}\n"
+                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
+        color=color
+    )
+
+    view = button_logic(interaction.user, pages=[], color=color, tab=advancement["adv_tab"], advancement=advancement, paginated=False)
+    await interaction.response.send_message(embed=embed, view=view)
+
+    ''' old adv code
     # advancements[i]:
     # "Advancement Name"
     # "Description"
@@ -549,20 +792,20 @@ async def embed_advancement(interaction: discord.Interaction, advancement: str):
 
     view = MyView()
     await interaction.response.send_message(embed=embed, view=view)
-
+'''
 
 ## GET ADVANCEMENT COMMAND
 @bot.tree.command(name="advancement", description="Display an advancement of your choice")
 @app_commands.autocomplete(advancement_search=autocomplete)
 @app_commands.describe(advancement_search="Display an advancement of your choice!")
 async def get_advancement(interaction: discord.Interaction, advancement_search: str):
+    logging.info(f"/advancement command was ran by {interaction.user} ({interaction.user.id}) Input: {advancement_search}")
     try:
         index = adv_index[advancement_search.upper()]
         advancement = advs[index]
         await embed_advancement(interaction, advancement)
 
     except Exception as e:
-
         embed = discord.Embed(
             title="Advancement Not Found!",
             description=f"*The advancement **{advancement_search}** could not be found. Please try again. {e}*",
@@ -574,6 +817,7 @@ async def get_advancement(interaction: discord.Interaction, advancement_search: 
 
 @bot.tree.command(name="random", description="Displays a random advancement")
 async def random_advancement(interaction: discord.Interaction):
+    logging.info(f"/random command was ran by {interaction.user} ({interaction.user.id})")
     try:
         random_adv = advs[random.randrange(0, len(advs))]
         await embed_advancement(interaction, random_adv)
@@ -614,6 +858,7 @@ async def tab_autocomplete(interaction: discord.Interaction, current: str) -> li
 @app_commands.autocomplete(tab=tab_autocomplete)
 @app_commands.describe(tab="The name of the tab you would like to list")
 async def tab(interaction: discord.Interaction, tab: str):
+    logging.info(f"/tab command was ran by {interaction.user} ({interaction.user.id}) Input {tab}")
     tab = tab.strip()
 
     # make bot think so it doesnt time out
@@ -640,7 +885,7 @@ async def tab(interaction: discord.Interaction, tab: str):
         color = embed_colors[tab]
     except Exception as e:
         color = 0xff0000
-        print(e)
+        logging.warning(e)
 
     # filter out advs by whatever tab they just put in
     filtered_advs = [adv for adv in advs if adv["adv_tab"].lower() == tab.lower()]
@@ -656,85 +901,7 @@ async def tab(interaction: discord.Interaction, tab: str):
     adv_pages = []
     for x in range(0, len(filtered_advs), 7):
         adv_pages.append(filtered_advs[x:x + 7])
-
-    embed = discord.Embed(
-        title=f"The {tab} Tab Advancements",
-        color=color
-    )
-
-    # advancements will be split into pages every 7 advs
-    class PageView(View):
-        def __init__(self, pages, color):
-            super().__init__(timeout=300)  # 5-minute timeout
-            self.pages = pages
-            self.page = 0
-            self.color = color
-            self.interaction_user = None
-
-            self.update_button_visibility()
-
-        async def interaction_check(self, interaction: discord.Interaction) -> bool:
-            if interaction.user != self.interaction_user:
-                await interaction.response.send_message("You are not allowed to interact with these buttons. L!",
-                                                        ephemeral=True)
-                return False
-            return True
-
-        async def send_page(self, interaction):
-            embed = discord.Embed(
-                title=f"The {tab} Tab Advancements *(Page {self.page + 1}/{len(self.pages)})*",
-                color=self.color,
-            )
-            for adv in self.pages[self.page]:
-                embed.add_field(
-                    name=f"**{adv['Advancement Name']}**",
-                    value=f"**Description**: {adv['Description']}",
-                    inline=False,
-                )
-            self.update_button_visibility()
-            await interaction.response.edit_message(embed=embed, view=self)
-
-        def update_button_visibility(self):
-            for child in self.children:
-                if isinstance(child, discord.ui.Button):
-                    if child.label == "⬅️ Previous Page":
-                        child.disabled = self.page == 0
-                    elif child.label == "Next Page ➡️":
-                        child.disabled = self.page == len(self.pages) - 1
-
-        async def on_timeout(self):
-            for item in self.children:
-                item.disabled = True
-            embed = discord.Embed(
-                title="**Pages Timed Out**",
-                description="This session has *timed out* due to inactivity. If you need to view the advancements again, please re-run the **/tab** command!",
-                color=0xff0000,
-            )
-            await self.message.edit(embed=embed, view=None)
-
-        @discord.ui.button(label="⬅️ Previous Page", style=discord.ButtonStyle.blurple)
-        async def previous_page(self, interaction: discord.Interaction, button: Button):
-            if self.page > 0:
-                self.page -= 1
-                await self.send_page(interaction)
-
-        @discord.ui.button(label="Next Page ➡️", style=discord.ButtonStyle.blurple)
-        async def next_page(self, interaction: discord.Interaction, button: Button):
-            if self.page < len(self.pages) - 1:
-                self.page += 1
-                await self.send_page(interaction)
-
-        @discord.ui.button(label="❌ Close", style=discord.ButtonStyle.red)
-        async def close(self, interaction: discord.Interaction, button: Button):
-            embed = discord.Embed(
-                title="**Tab List Closed**",
-                description="*To see another tab list, use the `/tab` command!*",
-                color=0xff0000,
-            )
-            await interaction.response.edit_message(embed=embed, view=None)
-
-    view = PageView(adv_pages, color)
-    view.interaction_user = interaction.user
+    view = button_logic(interaction.user, adv_pages, color, tab)
 
     embed = discord.Embed(
         title=f"The {tab} Tab Advancements *(Page 1/{len(adv_pages)})*",
@@ -758,8 +925,8 @@ sorted_help_commands = {
     "doc & documentation": "Both commands will link you to any official BACAP documentation of your choice. Use the `/doc` or `/documentation` command and type what documentation you want to find in the search field.",
     "help": "Displays information about all available commands. Use the `/help` command and type what command you need help with in the search field.",
     "random": "Displays a random advancement. Use the `/random` command.",
-    "refresh_advancements": "Refreshes and reloads advancement spreadsheet data from Sheets API. You cannot run this command unless you are an **administrator**.",
-    "refresh_trophies": "Refreshes and reloads trophy spreadsheet data from Sheets API. You cannot run this command unless you are an **administrator**.",
+    "refresh_advancements": "Refreshes and reloads advancement spreadsheet data from Sheets API. You cannot run this command unless you are an **bot developer**.",
+    "refresh_trophies": "Refreshes and reloads trophy spreadsheet data from Sheets API. You cannot run this command unless you are an **bot developer**.",
     "riddlemethis": "Displays steps on how to complete the \"Riddle Me This\" super challenge. Use `/riddlemethis` and type which step you want displayed in the search field.",
     "tab": "Lists all advancements from a tab of your choice. Use the `/tab` command and type what tab you want to list in the search field.",
     "update_world": "Displays information on how to upgrade BACAP to a newer version. Use the `/update_world` command.",
@@ -794,21 +961,53 @@ async def help_autocomplete(interaction: discord.Interaction, current: str) -> l
 @app_commands.autocomplete(help=help_autocomplete)
 @app_commands.describe(help="The name of the command you would like information about.")
 async def help_command(interaction: discord.Interaction, help: str):
-    ephemeral = False
+    logging.info(f"/help command was ran by {interaction.user} ({interaction.user.id}) Input {help}")
+    pictures = {
+        "advancement": "help_command_advancement.png",
+        "doc & documentation": "help_command_doc.png",
+        "help": "help_command_help.png",
+        "random": "help_command_random.png",
+        "refresh_advancements": "help_command_refresh_advancements.png",
+        "refresh_trophies": "help_command_refresh_trophies.png",
+        "riddlemethis": "help_command_riddle.png",
+        "tab": "help_command_tab.png",
+        "versions": "help_command_versions.png",
+        "update_world": "help_command_update_world.png"
+        }
+
     try:
+        ephemeral = False
         embed = discord.Embed(
             title=f"The {help} Command",
             description=f"{sorted_help_commands[help]}",
             color=discord.Color.blurple()
         )
+
+        image_name = pictures[help]
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
     except:
         ephemeral = True
         embed = discord.Embed(
-            title="Help",
-            description=f"Perhaps the archives are incomplete. There is no such option named {help}. Please try again with a valid option.",
+            title="❌ Error!",
+            description=f"Perhaps the archives are incomplete. There is no such option named *{help}*. Please try again with a valid option.",
             color=0xff0000
         )
-    await interaction.response.send_message(embed=embed, ephemeral=ephemeral)
+
+        image_name = "command_failed.png"
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command denied failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
+    await interaction.response.send_message(embed=embed, ephemeral=ephemeral, file=file)
 
 
 ## VERSIONS COMMAND RELATED STUFF
@@ -833,7 +1032,8 @@ version_dict = {
     "BACAP 1.16.9 (for MC 1.20.5 or 1.20.6)": "https://www.mediafire.com/file/n0tg28wcwugzpa0/BlazeandCave%2527s_Advancements_Pack_1.16.9.zip/file",
     "BACAP 1.17.2 (for MC 1.21 or 1.21.1)": "https://www.mediafire.com/file/h7y6czxsrp8b8pd/BlazeandCave%2527s_Advancements_Pack_1.17.2.zip/file",
     "BACAP 1.17.3 (for MC 1.21.2 or 1.21.3)": "https://www.mediafire.com/file/vo83prsi0lziwz4/BlazeandCave%2527s_Advancements_Pack_1.17.3.zip/file",
-    "latest": "https://www.mediafire.com/file/uy0ayqql8eo6cot/BlazeandCave%2527s_Advancements_Pack_1.18.1.zip/file"
+    "BACAP 1.18.1 (for MC 1.21.4)": "https://www.mediafire.com/file/uy0ayqql8eo6cot/BlazeandCave%2527s_Advancements_Pack_1.18.1.zip/file",
+    "BACAP 1.18.2 (for MC 1.21.5)": "https://www.mediafire.com/file/h4zolq1ykgxum01/BlazeandCave%2527s_Advancements_Pack_1.18.2.zip/file"
 }
 
 
@@ -863,47 +1063,90 @@ async def version_autocomplete(interaction: discord.Interaction, current: str) -
 @bot.tree.command(name="versions", description="Displays older versions of BACAP and the compatible Minecraft version.")
 @app_commands.autocomplete(version=version_autocomplete)
 @app_commands.describe(version="The name of the BACAP version you want to display.")
-async def help_command(interaction: discord.Interaction, version: str):
-    ephemeral = False
+async def version_command(interaction: discord.Interaction, version: str):
+    logging.info(f"/versions command was ran by {interaction.user} ({interaction.user.id}) Input: {version}")
+
     try:
+        ephemeral = False
         embed = discord.Embed(
             title=f"**{version}**",
-            description=f"*Version {version}'s download can be found here:*\n{version_dict[version]}",
+            description=f"*⬇️ Version **{version}**'s download can be found here:*\n{version_dict[version]}",
             color=discord.Color.brand_green()
         )
+
+        image_name = "versions.png"
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /versions command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
     except:
         ephemeral = True
         embed = discord.Embed(
-            title="Help",
-            description=f"Perhaps the archives are incomplete. There are no versions matching {version}. Please try again with a valid option.",
+            title="❌ Error!",
+            description=f"Perhaps the archives are incomplete. There are no versions matching *{version}*. Please try again with a valid option.",
             color=0xff0000
         )
-    await interaction.response.send_message(embed=embed, ephemeral=ephemeral)
+
+        image_name = "command_failed.png"
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /versions command denied failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
+    await interaction.response.send_message(embed=embed,ephemeral=ephemeral, file=file)
 
 
 ## UPDATE COMMAND
-@bot.tree.command(name="update_world",
-                  description="Displays a prompt on how to update your world when a new BACAP version releases.")
+@bot.tree.command(name="update_world", description="Displays a prompt on how to update your world when a new BACAP version releases.")
 async def update_world_command(interaction: discord.Interaction):
+    logging.info(f"/update_world command was ran by {interaction.user} ({interaction.user.id})")
+
     try:
+        ephemeral = False
+        image_name = "update_world.png"
         embed = discord.Embed(
-            title="Updating BACAP to a Newer Version",
-            description="*1. Make a backup of you world for safety if you screw anything up.*\n"
-                        "*2. Leave your world for more safety and don't go in during the process.*\n"
-                        "*3. Delete the old datapacks **COMPLETELY** from your world.*\n"
-                        "*4. Copy and paste in the new updated datapacks.*\n"
-                        "*5. Go into your world.*\n"
-                        "*6. If you **screwed up**, go to your backup, make a backup of your backup, then repeat __steps 2-6__ on the backup.*",
+            title="⬆️ Updating BACAP to a Newer Version",
+            description="1️⃣ Leave your world for upmost safety and do not rejoin during the process. *If you are updating BACAP on a server, we recommend you plan for downtime.*\n"
+                        "2️⃣ Make a backup of your world in case you screw up. *If the world is hosted on a server, save it either on the server's FTP or your computer.*\n"
+                        "3️⃣ Delete the old datapacks **COMPLETELY** from your world.\n"
+                        "4️⃣ Copy and paste in the new updated datapacks.\n"
+                        "5️⃣ Go into your world.\n"
+                        "6️⃣ If you **screwed up**, go to your backup, make a backup of your backup, then repeat __steps 3-6__ on the backup.",
             color=discord.Color.dark_blue()
         )
+
+        image_name = "update_world.png"
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /update_world command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+    
     except Exception as e:
+        logging.error(f"{interaction.user} ({interaction.user.id})'s /update_world command produced ERROR: {e}")
+
+        ephemeral = True
         embed = discord.Embed(
-            title="Error!",
-            description=f"Uh oh! An error occured while trying to display information! Error: {e}",
+            title="❌ Error!",
+            description=f"**Uh oh! An unknown error has occured!** *Please copy the error and report it to your server administrator.*\n**Error:** {e}",
             color=0xff0000
         )
 
-    await interaction.response.send_message(embed=embed, ephemeral=False)
+        image_name = "command_failed.png"
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /update_world command failure failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
+    await interaction.response.send_message(embed=embed, ephemeral=ephemeral, file=file)
 
 
 ## RIDDLE ME THIS DICT
@@ -953,51 +1196,92 @@ async def riddle_autocomplete(interaction: discord.Interaction, current: str) ->
     return results
 
 
-## RIDDLE ME THIS HELP COMMAND
-@bot.tree.command(name="riddlemethis",
-                  description="Displays the solutions to each step in the \"Riddle Me This\" challenge.")
+## RIDDLE ME THIS COMMAND
+@bot.tree.command(name="riddlemethis", description="Displays the solutions to each step in the \"Riddle Me This\" challenge.")
 @app_commands.autocomplete(riddle=riddle_autocomplete)
 @app_commands.describe(riddle="Which step you would like to display")
 async def riddle_command(interaction: discord.Interaction, riddle: str):
+    logging.info(f"/riddlemethis command was ran by {interaction.user} ({interaction.user.id}) Input: {riddle}")
+
     try:
         if riddle.lower() == "list all steps":
             steps = "\n".join(
                 [f"**{key}:** {value}" for key, value in riddle_me_this_batman.items() if key != "List All Steps"])
             embed = discord.Embed(
-                title="Riddle Me This: All Steps",
+                title="📜 Riddle Me This: All Steps",
                 description=f"{steps}",
                 color=discord.Color.dark_gold()
             )
+
+            image_name = "riddlemethisbatman.png"
+            if image_name in image_cache:
+                file = image_cache[image_name]
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+            else:
+                embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+                logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command success (list all steps) failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
         else:
-            try:
-                step = riddle_me_this_batman.get(riddle)
-            except:
+            step = riddle_me_this_batman.get(riddle)
+
+            if step is None:
                 embed = discord.Embed(
-                    title="Error!",
-                    description=f"There is no such step as {riddle}. Please try again with a valid option.",
-                    color=0xff0000
+                    title="❌ Error!",
+                    description=f"There is no such step as *{riddle}*. Please try again with a valid option.",
+                    color=0xff0000,
                 )
-                await interaction.response.send_message(embed=embed)
+
+                image_name = "command_failed.png"
+                if image_name in image_cache:
+                    file = image_cache[image_name]
+                    embed.set_thumbnail(url=f"attachment://{file.filename}")
+                else:
+                    embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+                    logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command denied failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+                
+                await interaction.response.send_message(embed=embed,ephemeral=True,file=file)
+                return
+
             embed = discord.Embed(
-                title=f"Riddle Me This: {riddle}",
+                title=f"📜 Riddle Me This: {riddle}",
                 description=f"{step}",
                 color=discord.Color.gold()
             )
-        await interaction.response.send_message(embed=embed)
+
+            image_name = "riddlemethisbatman.png"
+            if image_name in image_cache:
+                file = image_cache[image_name]
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+            else:
+                embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+                logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command success (single step) failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+        await interaction.response.send_message(embed=embed, ephemeral=False, file=file)
+
     except Exception as e:
+        logging.error(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command with input: \"{riddle}\" produced ERROR: {e}")
+
         embed = discord.Embed(
-            title="Error!",
-            description=f"Uh oh! An unknown error has occured! Error: {e}",
+            title="❌ Error!",
+            description=f"**Uh oh! An unknown error has occured!** *Please copy the error and report it to your server administrator.*\n**Error:** {e}",
             color=0xff0000
         )
 
+        image_name = "command_failed.png"
+        if image_name in image_cache:
+            file = image_cache[image_name]
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failure failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+        
+        await interaction.response.send_message(embed=embed,ephemeral=True, file=file)
 
 # get token and RUN
 with open("Text/token.txt") as file:
-    token = file.read()
+    token = file.read().strip()
 
 bot.run(token)
 
 # END
 
-# 1000
+# ONE THOUSAND TWO HUNDRED EIGHTY SEVEN
