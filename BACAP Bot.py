@@ -1,14 +1,18 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-04-03
-Current Version: v1.1
+Last Updated: 2025-04-20
+Current Version: v1.1.1
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
 
 === changelog v1.1 ===
+
+v1.1.1
+- hotfix for images not loading after being loaded the first time
+
 - updated versions command to include new version bacap 1.18.2
 - added several thumbnails and pictures for some commands, more will come soon
 - major internal rework of button logic and handling
@@ -56,14 +60,11 @@ def load_images():
     logging.info(f"THIS MESSAGE INDICATES THAT {image_folder} WAS ACCESSED SUCCESSFULLY")
 
     for filename in os.listdir(image_folder):
-        if filename.lower().endswith((".png")):
+        if filename.lower().endswith(".png"):
             file_path = os.path.join(image_folder, filename)
-            try:
-                image_cache[filename] = discord.File(file_path, filename=filename)
-                logging.info(f"Image File Loaded: {filename}")
-            except Exception as e:
-                logging.error(f"An error occured trying to load {filename}: {e}")
-    logging.info((f"ALL IMAGES PRELOADED :cave: {len(image_cache)} images loaded."))
+            image_cache[filename] = file_path
+            logging.info(f"Image File Cached: {filename}")
+    logging.info(f"ALL IMAGES PRELOADED :cave: {len(image_cache)} images cached.")
 
 # improved button logic handling
 def button_logic(user: discord.User, pages, color, tab, advancement=None, paginated=True):
@@ -220,6 +221,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 # LOGGING
+
 with open("Text/logging.txt") as file:
     log_path = file.read()
 
@@ -985,11 +987,13 @@ async def help_command(interaction: discord.Interaction, help: str):
 
         image_name = pictures[help]
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
-            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
-            logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+            file = None
+            embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command failed to display image. IMAGE FILE: {image_name}")
 
     except:
         ephemeral = True
@@ -1001,9 +1005,11 @@ async def help_command(interaction: discord.Interaction, help: str):
 
         image_name = "command_failed.png"
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
+            file = None
             embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command denied failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
 
@@ -1076,11 +1082,13 @@ async def version_command(interaction: discord.Interaction, version: str):
 
         image_name = "versions.png"
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
-            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
-            logging.warning(f"{interaction.user} ({interaction.user.id})'s /versions command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+            file = None
+            embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /versions command failed to display image. IMAGE FILE: {image_name}")
 
     except:
         ephemeral = True
@@ -1092,9 +1100,11 @@ async def version_command(interaction: discord.Interaction, version: str):
 
         image_name = "command_failed.png"
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
+            file = None
             embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /versions command denied failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
 
@@ -1122,7 +1132,8 @@ async def update_world_command(interaction: discord.Interaction):
 
         image_name = "update_world.png"
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
             embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
@@ -1140,7 +1151,8 @@ async def update_world_command(interaction: discord.Interaction):
 
         image_name = "command_failed.png"
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
             embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
@@ -1215,11 +1227,13 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
 
             image_name = "riddlemethisbatman.png"
             if image_name in image_cache:
-                file = image_cache[image_name]
+                file_path = image_cache[image_name]
+                file = discord.File(file_path, filename=image_name)
                 embed.set_thumbnail(url=f"attachment://{file.filename}")
             else:
-                embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
-                logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command success (list all steps) failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+                file = None
+                embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+                logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
 
         else:
             step = riddle_me_this_batman.get(riddle)
@@ -1233,13 +1247,15 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
 
                 image_name = "command_failed.png"
                 if image_name in image_cache:
-                    file = image_cache[image_name]
+                    file_path = image_cache[image_name]
+                    file = discord.File(file_path, filename=image_name)
                     embed.set_thumbnail(url=f"attachment://{file.filename}")
                 else:
-                    embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
-                    logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command denied failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+                    file = None
+                    embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+                    logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
                 
-                await interaction.response.send_message(embed=embed,ephemeral=True,file=file)
+                await interaction.response.send_message(embed=embed, ephemeral=True, file=file)
                 return
 
             embed = discord.Embed(
@@ -1250,11 +1266,14 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
 
             image_name = "riddlemethisbatman.png"
             if image_name in image_cache:
-                file = image_cache[image_name]
+                file_path = image_cache[image_name]
+                file = discord.File(file_path, filename=image_name)
                 embed.set_thumbnail(url=f"attachment://{file.filename}")
             else:
-                embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
-                logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command success (single step) failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+                file = None
+                embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+                logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
+
         await interaction.response.send_message(embed=embed, ephemeral=False, file=file)
 
     except Exception as e:
@@ -1262,19 +1281,21 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
 
         embed = discord.Embed(
             title="❌ Error!",
-            description=f"**Uh oh! An unknown error has occured!** *Please copy the error and report it to your server administrator.*\n**Error:** {e}",
+            description=f"**Uh oh! An unknown error has occurred!** *Please copy the error and report it to your server administrator.*\n**Error:** {e}",
             color=0xff0000
         )
 
         image_name = "command_failed.png"
         if image_name in image_cache:
-            file = image_cache[image_name]
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
             embed.set_thumbnail(url=f"attachment://{file.filename}")
         else:
-            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
-            logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failure failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+            file = None
+            embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
         
-        await interaction.response.send_message(embed=embed,ephemeral=True, file=file)
+        await interaction.response.send_message(embed=embed, ephemeral=True, file=file)
 
 # get token and RUN
 with open("Text/token.txt") as file:
@@ -1284,4 +1305,6 @@ bot.run(token)
 
 # END
 
-# ONE THOUSAND TWO HUNDRED EIGHTY SEVEN
+# ONE THOUSAND
+
+# ONE THOUSAND THREE HUNDRED SIX
