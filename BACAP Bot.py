@@ -1,14 +1,18 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-04-20
-Current Version: v1.1.1
+Last Updated: 2025-04-21
+Current Version: v1.1.2
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
 
 === changelog v1.1 ===
+
+v1.1.2
+- patched in additional adv info again
+- modified trophy button functionality
 
 v1.1.1
 - hotfix for images not loading after being loaded the first time
@@ -52,6 +56,23 @@ import os
 # image function for preloading images
 image_cache = {}
 
+# emotes = {
+#
+#     "task": "<:task:1364057078938996746>",
+#     "goal": "<:goal:1364057104670789753>",
+#     "challenge": "<:challenge:1364057094734745610>",
+#     "super_challenge": "<:super_challenge:1364057125151834203>",
+#     "milestone": "<:milestone:1364057113768366161>",
+#     "": "",
+#     "": "",
+#     "": "",
+#     "": "",
+#     "": "",
+#     "": "",
+#     "": "",
+#     "": "",
+#
+# }
 def load_images():
     image_folder = "images/"
     if not os.path.exists(image_folder):
@@ -79,9 +100,6 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
             self.message = None
             self.paginated = paginated
 
-            if advancement and advancement['Advancement Name'] in trophy_index.keys():
-                self.add_item(self.TrophyButton(advancement, color))
-
             if paginated:
                 self.previous_page = Button(label="⬅️ Previous Page", style=discord.ButtonStyle.blurple, custom_id="prev_page")
                 self.next_page = Button(label="Next Page ➡️", style=discord.ButtonStyle.blurple, custom_id="next_page")
@@ -89,13 +107,26 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                 self.next_page.callback = self.next_page_callback
                 self.add_item(self.previous_page)
                 self.add_item(self.next_page)
-            
+
             if not paginated and advancement:
                 self.more_info_button = Button(label="More Information", style=discord.ButtonStyle.green, custom_id="more_info_" + str(id(self)))
                 self.more_info_button.callback = self.more_info_callback
-                self.add_item(self.more_info_button)            
-            
-            self.close_button = Button(label="❌ Close", style=discord.ButtonStyle.red, custom_id="close_page")
+                self.add_item(self.more_info_button)
+
+            if advancement and advancement['Advancement Name'] in trophy_index.keys():
+                self.trophy_button = Button(label="Display Trophy", style=discord.ButtonStyle.blurple, custom_id="trophy" + str(id(self)))
+
+                self.trophy_button.callback = self.trophy_callback
+                self.add_item(self.trophy_button)
+
+                # self.add_item(self.TrophyButton(advancement, color))
+
+            #    def __init__(self, advancement, color):
+            #         super().__init__(label="Display Trophy", style=discord.ButtonStyle.blurple)
+            #         self.advancement = advancement
+            #         self.color = color
+
+            self.close_button = Button(label="❌ Close", style=discord.ButtonStyle.gray, custom_id="close_page")
             self.close_button.callback = self.close_page_callback
             self.add_item(self.close_button)
 
@@ -104,7 +135,7 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                 await interaction.response.send_message("❌ This is not your interaction. *Please run your own command!*",ephemeral=True)
                 return False
             return True
-        
+
         async def send_page(self, interaction):
             embed = discord.Embed(
                 title=f"The {tab} Tab Advancements *(Page {self.page + 1}/{len(self.pages)})*",
@@ -147,40 +178,32 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                 color=0xff0000
             )
             await interaction.response.edit_message(embed=embed, view=None)
-        
+
         async def more_info_callback(self, interaction: discord.Interaction):
             try:
                 if not self.show_more_info:
+
+                    # If this advancement has additional information to show, initialize it
+                    more_info = ""
+                    if advancement['Advancement Name'] in additional_adv_info.keys():
+                        more_info = additional_adv_info[advancement['Advancement Name']]
+
+                    source_reformatted = advancement.get('Source', '').replace('_', '\\_')
                     extra_info = f"**Actual Requirements**: {advancement.get('Actual Requirements (if different)', '')}\n" if advancement.get('Actual Requirements (if different)') else ""
+                    extra_info += f"**Additional Information**: {more_info}\n" if more_info != '' else ''
                     extra_info += f"**Item Rewards**: {advancement.get('Item rewards', '')}\n" if advancement.get('Item rewards') else ""
                     extra_info += f"**XP Rewards**: {advancement.get('XP Rewards', '')}\n" if advancement.get('XP Rewards') else ""
                     extra_info += f"**Trophy**: {advancement.get('Trophy', '')}\n" if advancement.get('Trophy') else ""
-                    extra_info += f"**Source**: {advancement.get('Source', '').replace('_', '\\_')}\n" if advancement.get('Source') else ""
+                    extra_info += f"**Source**: {source_reformatted}\n" if advancement.get('Source') else ""
                     extra_info += f"**Version Added**: {advancement.get('Version added', '')}\n" if advancement.get('Version added') else ""
 
-                    updated_embed = discord.Embed(
-                        title="Advancement Found!",
-                        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
-                                    f"*__{advancement['Description']}__*\n\n"
-                                    f"**Parent**: {advancement['Parent']}\n"
-                                    f"**Children**: {advancement['Children']}\n"
-                                    f"{extra_info}"
-                                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
-                        color=self.color
-                    )
+                    updated_embed = embed_advancement(advancement, extra_info, color)
+
                     self.more_info_button.label = "Less Information"
                     self.more_info_button.style = discord.ButtonStyle.red
                     self.show_more_info = True
                 else:
-                    updated_embed = discord.Embed(
-                        title="Advancement Found!",
-                        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
-                                    f"*__{advancement['Description']}__*\n\n"
-                                    f"**Parent**: {advancement['Parent']}\n"
-                                    f"**Children**: {advancement['Children']}\n"
-                                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
-                        color=self.color
-                    )
+                    updated_embed = embed_advancement(advancement, "", color)
                     self.more_info_button.label = "More Information"
                     self.more_info_button.style = discord.ButtonStyle.green
                     self.show_more_info = False
@@ -189,31 +212,35 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
             except Exception as e:
                 await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
 
-        class TrophyButton(discord.ui.Button):
-            def __init__(self, advancement, color):
-                super().__init__(label="Display Trophy", style=discord.ButtonStyle.blurple)
-                self.advancement = advancement
-                self.color = color
 
-            async def callback(self, interaction: discord.Interaction):
-                try:
-                    trophy = trophy_data[trophy_index[self.advancement['Advancement Name']]]
-                    lore = re.sub(r"\s*\|\s*", "\n", trophy['Lore'])
-                    credit = trophy['Credit'].replace("_", "\_")
+        async def trophy_callback(self, interaction: discord.Interaction):
+            try:
+                self.more_info_button.label = "Back to Advancement"
+                self.more_info_button.style = discord.ButtonStyle.red
+                self.show_more_info = True
 
-                    updated_embed = discord.Embed(
-                        title="",
-                        description=f"# {trophy['Trophy Name']}\n"
-                                    f"*{lore}*\n\n"
-                                    f"({trophy['Item Type']})\n\n"
-                                    f"**Version**: {trophy['Version']}\n"
-                                    f"**Credit**: {credit}\n"
-                                    f"\n*Obtained from __{self.advancement['Advancement Name']}__.*",
-                        color=self.color
-                    )
-                    await interaction.response.edit_message(embed=updated_embed)
-                except Exception as e:
-                    await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
+                trophy = trophy_data[trophy_index[advancement['Advancement Name']]]
+
+                # Format | into line breaks in lore
+                lore = re.sub(r"\s*\|\s*", "\n", trophy['Lore'])
+
+                # Remove discord formatting from underscores
+                credit = trophy['Credit'].replace("_", "\_")
+
+                updated_embed = discord.Embed(
+                    title="",
+                    description=f"# {trophy['Trophy Name']}\n"
+                                f"*{lore}*\n\n"
+                                f"({trophy['Item Type']})\n\n"
+                                f"**Version**: {trophy['Version']}\n"
+                                f"**Credit**: {credit}\n"
+                                f"\n*Obtained from __{advancement['Advancement Name']}__.*",
+                    color=self.color
+                )
+
+                await interaction.response.edit_message(embed=updated_embed, view=self)
+            except Exception as e:
+                await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
 
     return PageView()
 
@@ -222,17 +249,17 @@ logging.basicConfig(level=logging.INFO)
 
 # LOGGING
 
-with open("Text/logging.txt") as file:
-    log_path = file.read()
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(f"{log_path}"),
-        logging.StreamHandler()
-    ]
-)
+# with open("Text/logging.txt") as file:
+#     log_path = file.read()
+#
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(asctime)s - %(levelname)s - %(message)s',
+#     handlers=[
+#         logging.FileHandler(f"{log_path}"),
+#         logging.StreamHandler()
+#     ]
+# )
 
 ## BOT STUFF
 
@@ -404,6 +431,20 @@ def find_children():
     #     if "and" in children:
     #         print(a["Advancement Name"], children.count("and") + 1, children)
 
+def color_to_category(rgb):
+    colors = {
+        (243, 243, 243): "Root",
+        (147, 196, 125): "Task",
+        (): ""
+    }
+
+def get_cell_color(cell_format):
+    background_color = cell_format.get("backgroundColor", {})
+    print(background_color)
+    red = int(background_color.get("red", 1) * 255)
+    green = int(background_color.get("green", 1) * 255)
+    blue = int(background_color.get("blue", 1) * 255)
+    return (red, green, blue)
 
 # open sheet if possible
 def access_sheet(sheet_key):
@@ -421,6 +462,7 @@ def access_sheet(sheet_key):
         gc = gspread.service_account(filename="Text/google_auth.json")
         sheet = gc.open_by_key(sheet_key)
         logging.info(f"THIS MESSAGE IS TO INDICATE {sheet} WAS OPENED SUCCESSFULLY")
+
 
         for worksheet in sheet.worksheets():
             if worksheet.title == "Introduction" or worksheet.title == "Terralith":
@@ -454,7 +496,12 @@ def access_sheet(sheet_key):
                     grab_more_info = True
                     continue
 
+                # The loop will only get down here if it's reading a valid advancement (due to continues)
                 row["adv_tab"] = worksheet.title
+                # row["Category"] =
+                # print(row["Category"])
+
+                # Add each advancement row into the advs list
                 advs.append(row)
             logging.info(f"Fetched {len(advs)} advancements from {sheet.title}")
 
@@ -590,7 +637,21 @@ async def autocomplete(interaction: discord.Interaction, current: str) -> list[a
                 results.append(choice)
     return results
 
-async def embed_advancement(interaction: discord.Interaction, advancement: str):
+def embed_advancement(advancement, extra_info, color):
+    # adv_emote = emotes[advancement.get('Category', 'goal')]
+    adv_emote = ""
+    return discord.Embed(
+        title="Advancement Found!",
+        description=f"# {adv_emote} {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''} {adv_emote}\n"
+                    f"*__{advancement['Description']}__*\n\n"
+                    f"**Parent**: {advancement['Parent']}\n"
+                    f"**Children**: {advancement['Children']}\n"
+                    f"{extra_info}"
+                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
+        color=color
+    )
+
+async def generate_adv_embed(interaction: discord.Interaction, advancement: str):
     embed_colors = {
         "B&C Advancements": 0xccac66,
         "Farming": 0xccac66,
@@ -613,188 +674,11 @@ async def embed_advancement(interaction: discord.Interaction, advancement: str):
         color = embed_colors[advancement["adv_tab"]]
     except Exception as e:
         color = 0xffffff
-    
-    embed = discord.Embed(
-        title="Advancement Found!",
-        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
-                    f"*__{advancement['Description']}__*\n\n"
-                    f"**Parent**: {advancement['Parent']}\n"
-                    f"**Children**: {advancement['Children']}\n"
-                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
-        color=color
-    )
+
+    embed = embed_advancement(advancement, "", color)
 
     view = button_logic(interaction.user, pages=[], color=color, tab=advancement["adv_tab"], advancement=advancement, paginated=False)
     await interaction.response.send_message(embed=embed, view=view)
-
-    ''' old adv code
-    # advancements[i]:
-    # "Advancement Name"
-    # "Description"
-    # "Parent"
-    # "Actual Requirements (if different)"
-    # "Hidden?"
-    # "Item rewards"
-    # "XP Rewards"
-    # "Trophy"
-    # "Source"
-    # "Version added"
-    # "Notes"
-    # "adv_tab"
-
-    # Declare advancement embed colours
-    embed_colors = {
-        "B&C Advancements": 0xccac66,
-        "Farming": 0xccac66,
-        "Mining": 0xb7b7b7,
-        "Building": 0xf9cb9c,
-        "Animals": 0xb6d7a8,
-        "Monsters": 0x93af90,
-        "Weaponry": 0x999999,
-        "Redstone": 0x999999,
-        "Biomes": 0xf3f3f3,
-        "Adventure": 0xfff2cc,
-        "Enchanting": 0x000000,
-        "Statistics": 0xe69138,
-        "Nether": 0xe06666,
-        "Potions": 0xffd966,
-        "End": 0xfff2cc,
-        "Super Challenges": 0x666666
-    }
-    try:
-        color = embed_colors[advancement["adv_tab"]]
-    except Exception as e:
-        color = 0xffffff
-
-    # Note that this also appears below and must be changed twice
-    embed = discord.Embed(
-        title="Advancement Found!",
-        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
-                    f"*__{advancement['Description']}__*\n\n"
-                    f"**Parent**: {advancement['Parent']}\n"
-                    f"**Children**: {advancement['Children']}\n"
-                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
-        color=color
-
-    )
-
-    # Images?
-    # image_url = "https://static.planetminecraft.com/files/resource_media/screenshot/17877618-thumbnail.png"  # Replace with your actual image URL
-    # embed.set_image(url=image_url)
-
-    class TrophyButton(discord.ui.Button):
-        def __init__(self, label="Display Trophy", style=discord.ButtonStyle.blurple):
-            super().__init__(label=label, style=style)
-
-        async def callback(self, interaction: discord.Interaction):
-            try:
-
-                # {'Advancement': 'Mining Milestone',
-                # 'Item Type': 'Iron Pickaxe',
-                # 'CMD': 131,
-                # 'Trophy Name': "Miner's Trophy",
-                # 'Lore': "Don't mine at night!",
-                # 'Version': 1.11, 'Notes': '',
-                # 'Credit': 'Fiery_Crystal'}
-
-                trophy = trophy_data[trophy_index[advancement['Advancement Name']]]
-
-                # Format | into line breaks in lore
-                lore = re.sub("\s*\|\s*", "\n", trophy['Lore'])
-
-                # Remove formatting from underscores
-                credit = trophy['Credit'].replace("_", "\_")
-
-                updated_embed = discord.Embed(
-                    title="",
-                    description=f"# {trophy['Trophy Name']}\n"
-                                f"*{lore}*\n\n"
-                                f"({trophy['Item Type']})\n\n"
-                                f"**Version**: {trophy['Version']}\n"
-                                f"**Credit**: {credit}\n"
-                                f"\n*Obtained from __{advancement['Advancement Name']}__.*",
-                    color=color
-                )
-                await interaction.response.edit_message(embed=updated_embed)
-            except Exception as e:
-                await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
-
-    class MyView(discord.ui.View):
-
-        def __init__(self, timeout=300):  # Extend timeout to 5 minutes
-            super().__init__(timeout=timeout)
-            self.show_more_info = False
-
-            if advancement['Advancement Name'] in trophy_index.keys():
-                self.add_item(TrophyButton())
-
-        @discord.ui.button(label="More Information", style=discord.ButtonStyle.green)
-        async def update_embed(self, interaction: discord.Interaction, button: discord.ui.Button):
-            global additional_adv_info
-            try:
-                # Create the updated embed
-                if self.show_more_info == False:
-                    n = "\n"
-
-                    # If any of these strings are empty, don't display them under "More Information"
-                    actual_reqs = str(advancement['Actual Requirements (if different)'])
-                    item_rewards = str(advancement['Item rewards'])
-                    xp_rewards = str(advancement['XP Rewards'])
-                    trophy = str(advancement['Trophy'])
-                    notes = str(advancement['Notes'])
-
-                    # If this advancement has additional information to show, initialize it
-                    more_info = ""
-                    if advancement['Advancement Name'] in additional_adv_info.keys():
-                        more_info = additional_adv_info[advancement['Advancement Name']]
-
-                    # Remove formatting from underscores
-                    source = advancement['Source'].replace("_", "\_")
-
-                    # Update embed, hiding any elements which are empty
-                    updated_embed = discord.Embed(
-                        title="Advancement Found!",
-                        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
-                                    f"*__{advancement['Description']}__*\n\n"
-                                    f"**Parent**: {advancement['Parent']}\n"
-                                    f"**Children**: {advancement['Children']}\n"
-                                    f"{'**Actual Requirements**: ' + actual_reqs + n if actual_reqs != '' else ''}"
-                                    f"{'**Additional Information**: ' + more_info + n if more_info != '' else ''}"
-                                    f"{'**Item rewards**: ' + item_rewards + n if item_rewards != '' else ''}"
-                                    f"{'**XP Rewards**: ' + xp_rewards + n if xp_rewards != '' else ''}"
-                                    f"{'**Trophy**: ' + trophy + n if trophy != '' else ''}"
-                                    f"**Source**: {source}\n"
-                                    f"**Version added**: {advancement['Version added']}\n"
-                                    f"{'**Notes**: ' + notes + n if notes != '' else ''}"
-                                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
-                        color=color
-                    )
-                    button.label = "Less Information"
-                    button.style = discord.ButtonStyle.red
-                    self.show_more_info = True
-                else:
-                    updated_embed = discord.Embed(
-                        title="Advancement Found!",
-                        description=f"# {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''}\n"
-                                    f"*__{advancement['Description']}__*\n\n"
-                                    f"**Parent**: {advancement['Parent']}\n"
-                                    f"**Children**: {advancement['Children']}\n"
-                                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
-                        color=color
-                    )
-                    button.label = "More Information"
-                    button.style = discord.ButtonStyle.green
-                    self.show_more_info = False
-
-                # Edit the original message
-                await interaction.response.edit_message(embed=updated_embed, view=self)
-            except Exception as e:
-                # Handle exceptions properly
-                await interaction.response.edit_message(f"An error occurred: {e}", ephemeral=True)
-
-    view = MyView()
-    await interaction.response.send_message(embed=embed, view=view)
-'''
 
 ## GET ADVANCEMENT COMMAND
 @bot.tree.command(name="advancement", description="Display an advancement of your choice")
@@ -805,7 +689,7 @@ async def get_advancement(interaction: discord.Interaction, advancement_search: 
     try:
         index = adv_index[advancement_search.upper()]
         advancement = advs[index]
-        await embed_advancement(interaction, advancement)
+        await generate_adv_embed(interaction, advancement)
 
     except Exception as e:
         embed = discord.Embed(
@@ -822,7 +706,7 @@ async def random_advancement(interaction: discord.Interaction):
     logging.info(f"/random command was ran by {interaction.user} ({interaction.user.id})")
     try:
         random_adv = advs[random.randrange(0, len(advs))]
-        await embed_advancement(interaction, random_adv)
+        await generate_adv_embed(interaction, random_adv)
     except Exception as e:
         embed = discord.Embed(
             title="Advancement Not Found!",
@@ -1138,7 +1022,7 @@ async def update_world_command(interaction: discord.Interaction):
         else:
             embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /update_world command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
-    
+
     except Exception as e:
         logging.error(f"{interaction.user} ({interaction.user.id})'s /update_world command produced ERROR: {e}")
 
@@ -1254,7 +1138,7 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
                     file = None
                     embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
                     logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
-                
+
                 await interaction.response.send_message(embed=embed, ephemeral=True, file=file)
                 return
 
@@ -1294,7 +1178,7 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
             file = None
             embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
-        
+
         await interaction.response.send_message(embed=embed, ephemeral=True, file=file)
 
 # get token and RUN
@@ -1307,4 +1191,4 @@ bot.run(token)
 
 # ONE THOUSAND
 
-# ONE THOUSAND THREE HUNDRED SIX
+# ONE THOUSAND ONE HUNDRED NINETY FOUR
