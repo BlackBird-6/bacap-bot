@@ -1,14 +1,19 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-04-21
-Current Version: v1.1.2
+Last Updated: 2025-04-23
+Current Version: v1.1.3
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
+BUILD v1.2a3
+- COLOR CELL DETECTION ADDED FINALLY
 
 === changelog v1.1 ===
+
+v1.1.3
+- added emojis to display name depending on the category of the advancement
 
 v1.1.2
 - patched in additional adv info again
@@ -50,29 +55,50 @@ import logging
 from discord.ui import Button, View
 
 import gspread
+from googleapiclient.discovery import build
+from google.oauth2.service_account import Credentials
 
 import os
 
 # image function for preloading images
 image_cache = {}
 
+
+# BACAP Bot Reloaded
 # emotes = {
 #
-#     "task": "<:task:1364057078938996746>",
-#     "goal": "<:goal:1364057104670789753>",
-#     "challenge": "<:challenge:1364057094734745610>",
-#     "super_challenge": "<:super_challenge:1364057125151834203>",
-#     "milestone": "<:milestone:1364057113768366161>",
-#     "": "",
-#     "": "",
-#     "": "",
-#     "": "",
-#     "": "",
-#     "": "",
-#     "": "",
-#     "": "",
-#
 # }
+
+# Test bot
+
+test = False
+with open("Text/token.txt") as file:
+    if(file.read().endswith("P4")):
+        test = True
+        logging.info("BACAP Bot initialized in TESTING.")
+
+# Emotes for BACAP Bot Reloaded
+emotes = {
+    "root": "<:root:1364452913253978175>",
+    "task": "<:task:1335313144859328623>",
+    "goal": "<:goal:1335313109572648960>",
+    "challenge": "<:challenge:1335313097195388979>",
+    "super_challenge": "<:super_challenge:1335313134227034163>",
+    "milestone": "<:milestone:1335313122268938444>",
+    "hidden": "<:hidden:1364451436309516380>",
+    "advancement_legend": "<:advancement_legend:1364451408946003978>",
+    "": ""  # Add more when necessary
+} if not test else { # Emotes for test bot
+    "root": "<:root:1364452888193007676>",
+    "task": "<:task:1364057078938996746>",
+    "goal": "<:goal:1364057104670789753>",
+    "challenge": "<:challenge:1364057094734745610>",
+    "super_challenge": "<:super_challenge:1364057125151834203>",
+    "milestone": "<:milestone:1364057113768366161>",
+    "hidden": "<:hidden:1364451574247592077>",
+    "advancement_legend": "<:advancement_legend:1364451560435748945>",
+    "": "" # Add more when necessary
+}
 def load_images():
     image_folder = "images/"
     if not os.path.exists(image_folder):
@@ -246,21 +272,6 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
 
 logging.basicConfig(level=logging.INFO)
 
-
-# LOGGING
-
-# with open("Text/logging.txt") as file:
-#     log_path = file.read()
-#
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format='%(asctime)s - %(levelname)s - %(message)s',
-#     handlers=[
-#         logging.FileHandler(f"{log_path}"),
-#         logging.StreamHandler()
-#     ]
-# )
-
 ## BOT STUFF
 
 # start bot
@@ -405,13 +416,14 @@ async def documentation(interaction: discord.Interaction, doc_search: str):
 def find_children():
     # Cycle through every advancement (child)
     for i, advancement in enumerate(advs):
-
         child_name = advancement["Advancement Name"]
+
         try:
+            # Safeguard: Initialize parent_name with a default value
+            parent_name = advancement.get("Parent", "")
 
-            parent_name = advancement["Parent"]
-
-            if parent_name == "":
+            # Skip if the parent_name is empty
+            if not parent_name:
                 continue
 
             # Find the ID of the parent and assign it the child's name
@@ -431,20 +443,85 @@ def find_children():
     #     if "and" in children:
     #         print(a["Advancement Name"], children.count("and") + 1, children)
 
-def color_to_category(rgb):
+# GET COLOR FROM CELLS
+def get_category_from_color_or_so_help_me_god(rgb):
     colors = {
-        (243, 243, 243): "Root",
-        (147, 196, 125): "Task",
-        (): ""
+        (243, 243, 243): "root",
+        (147, 196, 125): "task",
+        (109, 158, 235): "goal",
+        (194, 123, 160): "challenge",
+        (224, 102, 102): "super_challenge",
+        (213, 166, 189): "hidden",
+        (255, 217, 102): "milestone",
+        (246, 178, 107): "advancement_legend",
     }
+    if rgb not in colors:
+        logging.warning(f"Color combination {rgb} not found in color dictionary.")
 
-def get_cell_color(cell_format):
-    background_color = cell_format.get("backgroundColor", {})
-    print(background_color)
-    red = int(background_color.get("red", 1) * 255)
-    green = int(background_color.get("green", 1) * 255)
-    blue = int(background_color.get("blue", 1) * 255)
+    return colors.get(rgb, "task")
+
+def get_cell_color(background_color):
+    red = round(background_color.get("red", 1) * 255, 0)
+    green = round(background_color.get("green", 1) * 255, 0)
+    blue = round(background_color.get("blue", 1) * 255, 0)
     return (red, green, blue)
+
+def assign_cell_colors(sheet_key):
+    try:
+        # Authenticate with Google Sheets API
+        creds = Credentials.from_service_account_file("Text/google_auth.json")
+        service = build("sheets", "v4", credentials=creds)
+        sheet = service.spreadsheets()
+
+        logging.info("Starting to assign cell colors to advancements.")
+
+        # Group advancements by their worksheet
+        advancements_by_worksheet = {}
+        for adv in advs:
+            worksheet_title = adv["adv_tab"]
+            if worksheet_title not in advancements_by_worksheet:
+                advancements_by_worksheet[worksheet_title] = []
+            advancements_by_worksheet[worksheet_title].append(adv)
+
+        # Process each worksheet
+        for worksheet_title, worksheet_advs in advancements_by_worksheet.items():
+            logging.info(f"Processing worksheet: {worksheet_title}")
+
+            # Fetch cell formatting data for column A
+            range_name = f"'{worksheet_title}'!A2:A"
+            formatting = sheet.get(
+                spreadsheetId=sheet_key,
+                ranges=range_name,
+                fields="sheets(data(rowData(values(effectiveFormat(backgroundColor)))))"
+            ).execute()
+
+            # Extract row data
+            row_data = formatting["sheets"][0]["data"][0].get("rowData", [])
+            row_colors = []
+
+            for row in row_data:
+                background_color = row.get("values", [{}])[0].get("effectiveFormat", {}).get("backgroundColor", {})
+                cell_color = get_cell_color(background_color)
+                row_colors.append(cell_color)
+
+            # Assign colors to advancements
+            for i, adv in enumerate(worksheet_advs):
+                if i < len(row_colors):
+
+                    index = adv_index[adv['Advancement Name'].upper()]
+                    advs[index]['Category'] = get_category_from_color_or_so_help_me_god(row_colors[i])
+
+
+                    # logging.info(f"Assigned color {row_colors[i]} to advancement '{adv['Advancement Name']}'")
+                else:
+                    adv["Cell Color"] = None
+                    logging.warning(f"No color data found for advancement '{adv['Advancement Name']}' in worksheet '{worksheet_title}'")
+            # print(worksheet_advs)
+
+        logging.info("Finished assigning cell colors to advancements.")
+
+    except Exception as e:
+        logging.error(f"An error occurred while assigning cell colors: {e}")
 
 # open sheet if possible
 def access_sheet(sheet_key):
@@ -498,8 +575,6 @@ def access_sheet(sheet_key):
 
                 # The loop will only get down here if it's reading a valid advancement (due to continues)
                 row["adv_tab"] = worksheet.title
-                # row["Category"] =
-                # print(row["Category"])
 
                 # Add each advancement row into the advs list
                 advs.append(row)
@@ -519,13 +594,16 @@ def access_sheet(sheet_key):
 
         find_children()
         # print(additional_adv_info)
+        # Assign cell colors to advancements
+
+        # Get backgrounds
+        assign_cell_colors(sheet_key)
 
     except Exception as e:
         logging.error(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
 
 
 # open trophy sheet if possible
-
 def access_trophy_sheet(trophy_sheet_key):
     global trophy_data
     global trophy_index
@@ -638,8 +716,7 @@ async def autocomplete(interaction: discord.Interaction, current: str) -> list[a
     return results
 
 def embed_advancement(advancement, extra_info, color):
-    # adv_emote = emotes[advancement.get('Category', 'goal')]
-    adv_emote = ""
+    adv_emote = emotes[advancement.get('Category', 'goal')]
     return discord.Embed(
         title="Advancement Found!",
         description=f"# {adv_emote} {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''} {adv_emote}\n"
@@ -706,6 +783,7 @@ async def random_advancement(interaction: discord.Interaction):
     logging.info(f"/random command was ran by {interaction.user} ({interaction.user.id})")
     try:
         random_adv = advs[random.randrange(0, len(advs))]
+
         await generate_adv_embed(interaction, random_adv)
     except Exception as e:
         embed = discord.Embed(
@@ -1191,4 +1269,4 @@ bot.run(token)
 
 # ONE THOUSAND
 
-# ONE THOUSAND ONE HUNDRED NINETY FOUR
+# ONE THOUSAND TWO HUNDRED SEVENTY TWO
