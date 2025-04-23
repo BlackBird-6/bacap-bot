@@ -1,2 +1,4 @@
 discord.py==2.4.0
-gspread==6.1.4
+google_api_python_client==2.167.0
+gspread==6.2.0
+protobuf==6.30.2
