@@ -721,7 +721,7 @@ def embed_advancement(advancement, extra_info, color):
     adv_emote = emotes[advancement.get('Category', 'goal')]
     return discord.Embed(
         title="Advancement Found!",
-        description=f"# {adv_emote} {advancement['Advancement Name']}{' <HIDDEN>' if advancement['Hidden?'] == 'TRUE' else ''} {adv_emote}\n"
+        description=f"# {adv_emote} {advancement['Advancement Name']} {adv_emote}\n"
                     f"*__{advancement['Description']}__*\n\n"
                     f"**Parent**: {advancement['Parent']}\n"
                     f"**Children**: {advancement['Children']}\n"
