@@ -1,16 +1,18 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-04-23
-Current Version: v1.1.3
+Last Updated: 2025-06-18
+Current Version: v1.1.4
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
-BUILD v1.2a3
-- COLOR CELL DETECTION ADDED FINALLY
-
 === changelog v1.1 ===
+
+v1.1.4
+- updated versions command to have new bacap versions
+- updated data to grab from 1.19 documentation
+- updated doc command to use 1.19 documentation
 
 v1.1.3
 - added emojis to display name depending on the category of the advancement
@@ -294,7 +296,7 @@ async def on_ready():
     trophy_sheet_key = "1yGppfv2T5KPtFWzNq25RjlLyerbe-OjY_jnT04ON9iI"
     access_trophy_sheet(trophy_sheet_key)
 
-    sheet_key = "1zlRBAkHZhoMlGBbLIvKGxY4wufVVpAhYko48QH6LDNs"
+    sheet_key = "14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY"
     access_sheet(sheet_key)
 
 
@@ -342,7 +344,7 @@ async def on_message(message):
 ############################ DOCUMENTATION ##############################
 
 sorted_doc_names = {
-    "BACAP 1.18": "https://docs.google.com/spreadsheets/d/1zlRBAkHZhoMlGBbLIvKGxY4wufVVpAhYko48QH6LDNs/edit?gid=1233183210#gid=1233183210",
+    "BACAP 1.19": "https://docs.google.com/spreadsheets/d/14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY/edit?usp=sharing",
     "Advancement Info Legacy": "https://modrinth.com/mod/advancementinfo",
     "Advancement Info Reloaded": "https://modrinth.com/mod/advancements-reloaded",
     "Advancement Legend Rules": "https://docs.google.com/document/d/1WZsGkN7D9piecNOFLRUNL-5GbAX_0Wgb5rxk6Lo1ess/edit?usp=sharing",
@@ -1001,7 +1003,9 @@ version_dict = {
     "BACAP 1.17.2 (for MC 1.21 or 1.21.1)": "https://www.mediafire.com/file/h7y6czxsrp8b8pd/BlazeandCave%2527s_Advancements_Pack_1.17.2.zip/file",
     "BACAP 1.17.3 (for MC 1.21.2 or 1.21.3)": "https://www.mediafire.com/file/vo83prsi0lziwz4/BlazeandCave%2527s_Advancements_Pack_1.17.3.zip/file",
     "BACAP 1.18.1 (for MC 1.21.4)": "https://www.mediafire.com/file/uy0ayqql8eo6cot/BlazeandCave%2527s_Advancements_Pack_1.18.1.zip/file",
-    "BACAP 1.18.2 (for MC 1.21.5)": "https://www.mediafire.com/file/h4zolq1ykgxum01/BlazeandCave%2527s_Advancements_Pack_1.18.2.zip/file"
+    "BACAP 1.18.2 (for MC 1.21.5)": "https://www.mediafire.com/file/h4zolq1ykgxum01/BlazeandCave%2527s_Advancements_Pack_1.18.2.zip/file",
+    "BACAP 1.18.3 (for MC 1.21.5)": "https://www.mediafire.com/file/vyljk8r2vd1jjlm/BlazeandCave%2527s_Advancements_Pack_1.18.3.zip/file",
+    "BACAP 1.19 (for MC 1.21.6)": "https://www.mediafire.com/file/kjihn47u1txundg/BlazeandCave%2527s_Advancements_Pack_1.19.zip/file"
 }
 
 
@@ -1269,4 +1273,4 @@ bot.run(token)
 
 # ONE THOUSAND
 
-# ONE THOUSAND TWO HUNDRED SEVENTY TWO
+# ONE THOUSAND TWO HUNDRED SEVENTY SIX
