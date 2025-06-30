@@ -1,13 +1,16 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-06-18
-Current Version: v1.1.4
+Last Updated: 2025-06-30
+Current Version: v1.1.5
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
 === changelog v1.1 ===
+
+v1.1.5
+- hotfix refresh_advancements command reloading wrong spreadsheet documentation
 
 v1.1.4
 - updated versions command to have new bacap versions
@@ -654,7 +657,7 @@ async def refresh(interaction: discord.Interaction):
         await interaction.response.defer(thinking=True)
 
         # Reload the advancements from the sheet
-        sheet_key = "1zlRBAkHZhoMlGBbLIvKGxY4wufVVpAhYko48QH6LDNs"
+        sheet_key = "14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY"
         access_sheet(sheet_key)
 
         # Send a follow-up message after processing
@@ -1273,4 +1276,4 @@ bot.run(token)
 
 # ONE THOUSAND
 
-# ONE THOUSAND TWO HUNDRED SEVENTY SIX
+# ONE THOUSAND TWO HUNDRED SEVENTY NINE
