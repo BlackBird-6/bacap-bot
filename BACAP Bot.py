@@ -1,46 +1,54 @@
 '''
 --== BACAP BOT: RELOADED ==--
-Coded By: BlackBird_6 and saladbowls
-Last Updated: 2025-06-30
-Current Version: v1.1.5
+Coded By: BlackBird_6, saladbowls, and Ktano2o6o8
+Last Updated: 2025-07-13
+Current Version: v1.2.0
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
+=== changelog v1.2 ===
+
+v1.2.0
+- Added capability to read from datapack files
+- Updated advancement view to include criteria count
+- Updated advancement view to include an image of the adv icon on a frame of that adv's category
+- Upgrades, people, upgrades!
+
 === changelog v1.1 ===
 
 v1.1.5
-- hotfix refresh_advancements command reloading wrong spreadsheet documentation
+- Hotfix refresh_advancements command reloading wrong spreadsheet documentation
 
 v1.1.4
-- updated versions command to have new bacap versions
-- updated data to grab from 1.19 documentation
-- updated doc command to use 1.19 documentation
+- Updated versions command to have new bacap versions
+- Updated data to grab from 1.19 documentation
+- Updated doc command to use 1.19 documentation
 
 v1.1.3
-- added emojis to display name depending on the category of the advancement
+- Added emojis to display name depending on the category of the advancement
 
 v1.1.2
-- patched in additional adv info again
-- modified trophy button functionality
+- Patched in additional adv info again
+- Modified trophy button functionality
 
 v1.1.1
-- hotfix for images not loading after being loaded the first time
+- Hotfix for images not loading after being loaded the first time
 
-- updated versions command to include new version bacap 1.18.2
-- added several thumbnails and pictures for some commands, more will come soon
-- major internal rework of button logic and handling
--- we are currently aware of a bug with the advancement's button logic where it doesn't time out for some reason
+- Updated versions command to include new version bacap 1.18.2
+- Added several thumbnails and pictures for some commands, more will come soon
+- Major internal rework of button logic and handling
+-- We are currently aware of a bug with the advancement's button logic where it doesn't time out for some reason
 
-- added logging and removed print statements
-- made embeds a bit neater with emojis
-- optimizations here and there
+- Added logging and removed print statements
+- Made embeds a bit neater with emojis
+- Optimizations here and there
 
 v1.0r3
-- fixed being able to run any refresh commands if you're an admin on a server with the bot (thank u p1k0chu)
+- Fixed being able to run any refresh commands if you're an admin on a server with the bot (thank u p1k0chu)
 
 v1.0r2
-- reactive messages disabled due to bot spam/abuse
+- Reactive messages disabled due to bot spam/abuse (this is why we can't have nice things)
 
 - i still can't believe it's not butter
 === end of changelog ===
@@ -62,25 +70,32 @@ from discord.ui import Button, View
 import gspread
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
+from PIL import Image
 
 import os
+import json
 
 # image function for preloading images
 image_cache = {}
+item_cache = {}
+adv_image_file = None
+
+# Enable or disable for logging
+logging.getLogger().setLevel(logging.INFO)
+
+
+# Ensure bot is ran from script directory
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 # BACAP Bot Reloaded
-# emotes = {
-#
-# }
 
-# Test bot
-
+# Test bot check
 test = False
 with open("Text/token.txt") as file:
     if(file.read().endswith("P4")):
         test = True
-        logging.info("BACAP Bot initialized in TESTING.")
+        logging.warning("BACAP Bot initialized in TESTING.")
 
 # Emotes for BACAP Bot Reloaded
 emotes = {
@@ -104,6 +119,7 @@ emotes = {
     "advancement_legend": "<:advancement_legend:1364451560435748945>",
     "": "" # Add more when necessary
 }
+
 def load_images():
     image_folder = "images/"
     if not os.path.exists(image_folder):
@@ -116,6 +132,7 @@ def load_images():
             file_path = os.path.join(image_folder, filename)
             image_cache[filename] = file_path
             logging.info(f"Image File Cached: {filename}")
+
     logging.info(f"ALL IMAGES PRELOADED :cave: {len(image_cache)} images cached.")
 
 # improved button logic handling
@@ -222,6 +239,7 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                     source_reformatted = advancement.get('Source', '').replace('_', '\\_')
                     extra_info = f"**Actual Requirements**: {advancement.get('Actual Requirements (if different)', '')}\n" if advancement.get('Actual Requirements (if different)') else ""
                     extra_info += f"**Additional Information**: {more_info}\n" if more_info != '' else ''
+                    extra_info += f"**Criteria Count**: {advancement.get('Criteria Count', '')}\n" if advancement.get('Criteria Count') else ""
                     extra_info += f"**Item Rewards**: {advancement.get('Item rewards', '')}\n" if advancement.get('Item rewards') else ""
                     extra_info += f"**XP Rewards**: {advancement.get('XP Rewards', '')}\n" if advancement.get('XP Rewards') else ""
                     extra_info += f"**Trophy**: {advancement.get('Trophy', '')}\n" if advancement.get('Trophy') else ""
@@ -238,6 +256,9 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                     self.more_info_button.label = "More Information"
                     self.more_info_button.style = discord.ButtonStyle.green
                     self.show_more_info = False
+
+                if adv_image_file.filename:
+                    updated_embed.set_thumbnail(url=f"attachment://{adv_image_file.filename}")
 
                 await interaction.response.edit_message(embed=updated_embed, view=self)
             except Exception as e:
@@ -269,6 +290,9 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                     color=self.color
                 )
 
+                if adv_image_file.filename:
+                    updated_embed.set_thumbnail(url=f"attachment://{adv_image_file.filename}")
+
                 await interaction.response.edit_message(embed=updated_embed, view=self)
             except Exception as e:
                 await interaction.response.send_message(content=f"An error occurred: {e}", ephemeral=True)
@@ -299,8 +323,15 @@ async def on_ready():
     trophy_sheet_key = "1yGppfv2T5KPtFWzNq25RjlLyerbe-OjY_jnT04ON9iI"
     access_trophy_sheet(trophy_sheet_key)
 
-    sheet_key = "14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY"
-    access_sheet(sheet_key)
+    access_sheet(BACAP_DOC_KEY)
+
+    access_BACAP_datapack()
+
+    build_adv_icons()
+
+    logging.info("BACAP Bot loaded and ready for use!")
+    
+    
 
 
 @bot.command(name="realisticcave")
@@ -346,8 +377,9 @@ async def on_message(message):
 '''
 ############################ DOCUMENTATION ##############################
 
+BACAP_DOC_KEY = '14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY'
 sorted_doc_names = {
-    "BACAP 1.19": "https://docs.google.com/spreadsheets/d/14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY/edit?usp=sharing",
+    "BACAP 1.19": f"https://docs.google.com/spreadsheets/d/{BACAP_DOC_KEY}/edit?usp=sharing",
     "Advancement Info Legacy": "https://modrinth.com/mod/advancementinfo",
     "Advancement Info Reloaded": "https://modrinth.com/mod/advancements-reloaded",
     "Advancement Legend Rules": "https://docs.google.com/document/d/1WZsGkN7D9piecNOFLRUNL-5GbAX_0Wgb5rxk6Lo1ess/edit?usp=sharing",
@@ -435,7 +467,7 @@ def find_children():
             parent_id = adv_index[parent_name.upper()]
 
             if advs[parent_id]["Children"] != "":
-                advs[parent_id]["Children"] = advs[parent_id]["Children"] + " and " + child_name
+                advs[parent_id]["Children"] = advs[parent_id]["Children"] + ", " + child_name
             else:
                 advs[parent_id]["Children"] = child_name
 
@@ -640,6 +672,140 @@ def access_trophy_sheet(trophy_sheet_key):
     except Exception as e:
         logging.error(f"\nWHILE LOADING SPREADSHEET {sheet}, AN ERROR OCCURED :sadcave:\n{e}")
 
+def access_BACAP_datapack():
+    global advs
+
+    # Remember to update this
+    adv_directories = ["./packs/BlazeandCaves Advancements Pack 1.19/data/blazeandcave/advancement",
+                       "./packs/BlazeandCaves Advancements Pack 1.19/data/minecraft/advancement"]
+    adv_paths = []
+    adv_namespace = []
+
+    for directory in adv_directories:
+        for root, dirs, files in os.walk(directory, topdown=True):
+            for file in files:
+                adv_path = os.path.join(root, file).replace('\\', '/')
+                if '/'.join(adv_path.split('/')[-4:]) not in adv_namespace:
+                    adv_paths.append(adv_path)
+                    adv_namespace.append('/'.join(adv_path.split('/')[-4:]))
+
+    adv_paths = [adv for adv in adv_paths if '/technical' not in adv]
+
+    # For use if we ever want to extract item rewards or similar
+    # lang_url = 'https://raw.githubusercontent.com/misode/mcmeta/refs/heads/assets/assets/minecraft/lang/en_us.json'
+    # response = requests.get(lang_url)
+    # lang = response.json()
+
+    for adv_path in adv_paths:
+        with open(adv_path, encoding='utf-8') as adv_file:
+            datapack_adv = json.load(adv_file)
+
+            try:
+                title = datapack_adv["display"]["title"]["translate"]
+                if "extra" in datapack_adv["display"]["title"].keys() and title != "Riddle Me This":
+                    for extra in datapack_adv["display"]["title"]["extra"]:
+                        title += extra["translate" if "translate" in extra.keys() else "text"]
+                
+                if title == "Feeding the §mDucks§r Chickens": # Hardcode this weird guy
+                    title = "Feeding the Ducks Chickens"
+
+                # Merge into advs dictionary if adv exists
+                if title.upper() not in adv_index:
+                    print(f"Bad title: {title}")
+                else:
+
+                    adv = advs[adv_index[title.upper()]]
+
+                    adv["Icon"] = datapack_adv["display"]["icon"]["id"].replace("minecraft:", "minecraft_")
+
+                    # LIST OF EXCEPTIONS
+                    blacklist = {
+                        'ADVANCEMENT LEGEND' : 'custom/cavinator1_head'
+                    }
+
+                    if title.upper() in blacklist:
+                        adv["Icon"] = blacklist[title.upper()]
+
+                    # Set a default non-null value of False
+                    adv["Enchanted"] = False
+
+                    # Check if the item is enchanted
+                    if "components" in datapack_adv["display"]["icon"]:
+                        if "minecraft:enchantment_glint_override" in datapack_adv["display"]["icon"]["components"]:
+                            adv["Enchanted"] = True
+                            
+                    # For advs which group some of their criteria together
+                    if "requirements" in datapack_adv:
+                        adv["Criteria Count"] = len(datapack_adv["requirements"])
+                    else:
+                        adv["Criteria Count"] = len(datapack_adv["criteria"])
+
+            except Exception as e:
+                print(f"Error parsing {adv_path} with error {e}")
+                continue
+
+def truncate_to_namespace(name):
+    return "".join([c if c in "abcdefghijklmnopqrstuvwxyz0123456789_" else "" for c in name.replace(" ", "_").lower()])
+
+def build_adv_icons():
+    
+    # Set up the 50% opacity enchantment glint
+    glint = Image.open("images/glint.png").convert("RGBA")
+    glint_half_strength = glint.copy()
+    glint_data = glint_half_strength.load()
+    for x in range(glint_half_strength.width):
+        for y in range(glint_half_strength.height):
+            r, g, b, a = glint_data[x, y]
+            glint_data[x, y] = (r, g, b, int(a/2)) # Halve alpha value
+
+    for adv in advs:
+
+        item_name = adv['Icon']
+        frame_name = adv['Category']
+
+        if not os.path.exists(f"images/bacap"):
+            os.mkdir(f"images/bacap")
+
+        # Load images for the frame and item
+        try:
+            frame = Image.open(f"images/frames/{frame_name}.png").convert("RGBA")
+            item = Image.open(f"images/mc_textures/{item_name}.png").convert("RGBA")
+        except Exception as e:
+            logging.warning(f"File could not be found, with error {e}")
+
+        try:
+            # Make enchanted version
+            if adv["Enchanted"]:
+                ench_item = item.copy()
+                ench_item.alpha_composite(glint_half_strength,(0,0),(0,0))
+
+                img_pixels = []
+                for r, g, b, a in ench_item.getdata():
+                    if a < 255:
+                        img_pixels.append((r, g, b, 0))
+                    else:
+                        img_pixels.append((r, g, b, 255))
+
+                ench_item = Image.new("RGBA", (64, 64))
+                ench_item.putdata(img_pixels)
+
+                # Enchanted item and normal item take the exact same set of pixels so no new copy is necessary
+                new_frame = frame.copy()
+                new_frame.paste(item, (20, 20), item) # Paste the original item first to eliminate transparency bugs
+                new_frame.paste(ench_item, (20, 20), ench_item)
+                new_frame.save(f"images/bacap/{truncate_to_namespace(adv['Advancement Name'])}.png")
+            
+            # Make normal version
+            else:
+                new_frame = frame.copy()
+                new_frame.paste(item, (20, 20), item)
+                new_frame.save(f"images/bacap/{truncate_to_namespace(adv['Advancement Name'])}.png")
+
+        except Exception as e:
+            logging.warning(f"{adv} could not be built, giving error {e}")
+
+    logging.info(f"{len(advs)} advancement icons built!")
+
 # refresh admin fix
 you_have_rights = {407695710058971138, 131972834695184385, 360894618734428160}
 
@@ -657,8 +823,7 @@ async def refresh(interaction: discord.Interaction):
         await interaction.response.defer(thinking=True)
 
         # Reload the advancements from the sheet
-        sheet_key = "14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY"
-        access_sheet(sheet_key)
+        access_sheet(BACAP_DOC_KEY)
 
         # Send a follow-up message after processing
         await interaction.followup.send("*All advancements have been reloaded successfully.*")
@@ -731,9 +896,11 @@ def embed_advancement(advancement, extra_info, color):
                     f"{extra_info}"
                     f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
         color=color
+        
     )
 
 async def generate_adv_embed(interaction: discord.Interaction, advancement: str):
+    global adv_image_file
     embed_colors = {
         "B&C Advancements": 0xccac66,
         "Farming": 0xccac66,
@@ -759,8 +926,19 @@ async def generate_adv_embed(interaction: discord.Interaction, advancement: str)
 
     embed = embed_advancement(advancement, "", color)
 
+    image_name = f"{truncate_to_namespace(advancement['Advancement Name'])}.png"
+    file_path = f"images/bacap/{image_name}"
+
+    if os.path.exists(file_path):
+        adv_image_file = discord.File(file_path, filename=image_name)
+        embed.set_thumbnail(url=f"attachment://{adv_image_file.filename}")
+    else:
+        adv_image_file = None
+        embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
+        logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command failed to display image. IMAGE FILE: {image_name}")
+    
     view = button_logic(interaction.user, pages=[], color=color, tab=advancement["adv_tab"], advancement=advancement, paginated=False)
-    await interaction.response.send_message(embed=embed, view=view)
+    await interaction.response.send_message(embed=embed, view=view, file=adv_image_file)
 
 ## GET ADVANCEMENT COMMAND
 @bot.tree.command(name="advancement", description="Display an advancement of your choice")
@@ -1276,4 +1454,4 @@ bot.run(token)
 
 # ONE THOUSAND
 
-# ONE THOUSAND TWO HUNDRED SEVENTY NINE
+# ONE THOUSAND TWO HUNDRED SEVENTY SIX
