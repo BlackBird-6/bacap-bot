@@ -1,13 +1,23 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6, saladbowls, and Ktano2o6o8
-Last Updated: 2025-07-13
-Current Version: v1.2.0
+Last Updated: 2025-07-14
+Current Version: v1.2.1
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
 === changelog v1.2 ===
+
+v1.2.1
+- Fixed a bug related to the "Display Trophy" button still lingering when viewing the actual trophy embed
+- Added emojis to advancement embeds and buttons
+-- The "More Information" section has been reformatted to be more tidy and clean
+- Reworked button timing out logic - buttons now delete themselves when they time out
+-- The "Close" button has been removed with this reworked logic
+- Added a new thumbnail to /doc and /documentation
+
+- i still cannot believe that it's literally not butter
 
 v1.2.0
 - Added capability to read from datapack files
@@ -38,11 +48,13 @@ v1.1.1
 - Updated versions command to include new version bacap 1.18.2
 - Added several thumbnails and pictures for some commands, more will come soon
 - Major internal rework of button logic and handling
--- We are currently aware of a bug with the advancement's button logic where it doesn't time out for some reason
+-- We are currently aware of a bug with the advancement's button logic where it doesn't time out for some reason (FIXED IN v1.2.1)
 
 - Added logging and removed print statements
 - Made embeds a bit neater with emojis
 - Optimizations here and there
+
+=== changelog v1.0 ===
 
 v1.0r3
 - Fixed being able to run any refresh commands if you're an admin on a server with the bot (thank u p1k0chu)
@@ -93,7 +105,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # Test bot check
 test = False
 with open("Text/token.txt") as file:
-    if(file.read().endswith("P4")):
+    if(file.read().strip().endswith("P4")):
         test = True
         logging.warning("BACAP Bot initialized in TESTING.")
 
@@ -157,12 +169,12 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                 self.add_item(self.next_page)
 
             if not paginated and advancement:
-                self.more_info_button = Button(label="More Information", style=discord.ButtonStyle.green, custom_id="more_info_" + str(id(self)))
+                self.more_info_button = Button(label="ℹ️ More Information", style=discord.ButtonStyle.green, custom_id="more_info_" + str(id(self)))
                 self.more_info_button.callback = self.more_info_callback
                 self.add_item(self.more_info_button)
 
             if advancement and advancement['Advancement Name'] in trophy_index.keys():
-                self.trophy_button = Button(label="Display Trophy", style=discord.ButtonStyle.blurple, custom_id="trophy" + str(id(self)))
+                self.trophy_button = Button(label="🏆 Display Trophy", style=discord.ButtonStyle.blurple, custom_id="trophy" + str(id(self)))
 
                 self.trophy_button.callback = self.trophy_callback
                 self.add_item(self.trophy_button)
@@ -173,10 +185,6 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
             #         super().__init__(label="Display Trophy", style=discord.ButtonStyle.blurple)
             #         self.advancement = advancement
             #         self.color = color
-
-            self.close_button = Button(label="❌ Close", style=discord.ButtonStyle.gray, custom_id="close_page")
-            self.close_button.callback = self.close_page_callback
-            self.add_item(self.close_button)
 
         async def interaction_check(self, interaction: discord.Interaction) -> bool:
             if interaction.user != self.interaction_user:
@@ -202,12 +210,7 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
             if self.message:
                 for item in self.children:
                     item.disabled = True
-                embed = discord.Embed(
-                    title="**❌ Embed Timed Out**",
-                    description="This session has *timed out* due to inactivity. Please re-run your command!",
-                    color=0xff0000
-                )
-                await self.message.edit(embed=embed,view=None)
+                await self.message.edit(view=None)
 
         async def previous_page_callback(self, interaction: discord.Interaction):
             if self.page > 0:
@@ -219,13 +222,6 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                 self.page += 1
                 await self.send_page(interaction)
 
-        async def close_page_callback(self, interaction: discord.Interaction):
-            embed = discord.Embed(
-                title="**✅ Embed Closed**",
-                description="*If you would like to see more, please re-run your command!*",
-                color=0xff0000
-            )
-            await interaction.response.edit_message(embed=embed, view=None)
 
         async def more_info_callback(self, interaction: discord.Interaction):
             try:
@@ -237,25 +233,32 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                         more_info = additional_adv_info[advancement['Advancement Name']]
 
                     source_reformatted = advancement.get('Source', '').replace('_', '\\_')
-                    extra_info = f"**Actual Requirements**: {advancement.get('Actual Requirements (if different)', '')}\n" if advancement.get('Actual Requirements (if different)') else ""
-                    extra_info += f"**Additional Information**: {more_info}\n" if more_info != '' else ''
-                    extra_info += f"**Criteria Count**: {advancement.get('Criteria Count', '')}\n" if advancement.get('Criteria Count') else ""
-                    extra_info += f"**Item Rewards**: {advancement.get('Item rewards', '')}\n" if advancement.get('Item rewards') else ""
-                    extra_info += f"**XP Rewards**: {advancement.get('XP Rewards', '')}\n" if advancement.get('XP Rewards') else ""
-                    extra_info += f"**Trophy**: {advancement.get('Trophy', '')}\n" if advancement.get('Trophy') else ""
-                    extra_info += f"**Source**: {source_reformatted}\n" if advancement.get('Source') else ""
-                    extra_info += f"**Version Added**: {advancement.get('Version added', '')}\n" if advancement.get('Version added') else ""
+                    extra_info = "\n"
+                    extra_info += f"**📃   Actual Requirements**: {advancement.get('Actual Requirements (if different)', '')}\n" if advancement.get('Actual Requirements (if different)') else "\n"
+                    extra_info += f"**🔢   Criteria Count**: {advancement.get('Criteria Count', '')}\n" if advancement.get('Criteria Count') else ""
+                    extra_info += "\n"
+                    extra_info += f"**🏅   Item Rewards**: {advancement.get('Item rewards', '')}\n" if advancement.get('Item rewards') else "**🏅   Item Rewards**: N/A\n"
+                    extra_info += f"**✨   XP Rewards**: {advancement.get('XP Rewards', '')}\n" if advancement.get('XP Rewards') else "**✨   XP Rewards**: N/A\n"
+                    extra_info += f"**🏆   Trophy**: {advancement.get('Trophy', '')}\n" if advancement.get('Trophy') else ""
+                    extra_info += "\n"
+                    extra_info += f"**📝   Source**: {source_reformatted}\n" if advancement.get('Source') else ""
+                    extra_info += f"**🔧   Version Added**: {advancement.get('Version added', '')}\n" if advancement.get('Version added') else ""
+                    extra_info += f"\n**ℹ️   Additional Information**: {more_info}\n" if more_info != '' else ''
 
                     updated_embed = embed_advancement(advancement, extra_info, color)
 
-                    self.more_info_button.label = "Less Information"
+                    self.more_info_button.label = "🚫 Less Information"
                     self.more_info_button.style = discord.ButtonStyle.red
                     self.show_more_info = True
                 else:
                     updated_embed = embed_advancement(advancement, "", color)
-                    self.more_info_button.label = "More Information"
+                    self.more_info_button.label = "ℹ️ More Information"
                     self.more_info_button.style = discord.ButtonStyle.green
                     self.show_more_info = False
+
+                    if advancement['Advancement Name'] in trophy_index.keys():
+                        if self.trophy_button not in self.children:
+                            self.add_item(self.trophy_button)                    
 
                 if adv_image_file.filename:
                     updated_embed.set_thumbnail(url=f"attachment://{adv_image_file.filename}")
@@ -267,7 +270,7 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
 
         async def trophy_callback(self, interaction: discord.Interaction):
             try:
-                self.more_info_button.label = "Back to Advancement"
+                self.more_info_button.label = "⬅️ Back to Advancement"
                 self.more_info_button.style = discord.ButtonStyle.red
                 self.show_more_info = True
 
@@ -284,14 +287,15 @@ def button_logic(user: discord.User, pages, color, tab, advancement=None, pagina
                     description=f"# {trophy['Trophy Name']}\n"
                                 f"*{lore}*\n\n"
                                 f"({trophy['Item Type']})\n\n"
-                                f"**Version**: {trophy['Version']}\n"
-                                f"**Credit**: {credit}\n"
+                                f"🔢   **Version**: {trophy['Version']}\n"
+                                f"📝   **Credit**: {credit}\n"
                                 f"\n*Obtained from __{advancement['Advancement Name']}__.*",
                     color=self.color
                 )
 
                 if adv_image_file.filename:
                     updated_embed.set_thumbnail(url=f"attachment://{adv_image_file.filename}")
+                self.remove_item(self.trophy_button)
 
                 await interaction.response.edit_message(embed=updated_embed, view=self)
             except Exception as e:
@@ -411,25 +415,54 @@ async def doc_autocomplete(interaction: discord.Interaction, current: str) -> li
 
 async def show_documentation(interaction: discord.Interaction, doc_search: str):
     ephemeral = False
+    image_name = "docs.png"
     try:
         if doc_search in ["Advancement Info Reloaded", "Advancement Info Legacy"]:
             embed = discord.Embed(
                 title="Documentation",
                 description=f"The {doc_search} download link may be found here:\n{sorted_doc_names[doc_search]}"
             )
+            image_name = "docs.png"
+            if image_name in image_cache:
+                file_path = image_cache[image_name]
+                file = discord.File(file_path, filename=image_name)
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+            else:
+                embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+                logging.warning(f"{interaction.user} ({interaction.user.id})'s /doc command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
         else:
             embed = discord.Embed(
                 title=f"Documentation",
                 description=f"The {doc_search} documentation may be found here:\n{sorted_doc_names[doc_search]}"
             )
+            image_name = "docs.png"
+            if image_name in image_cache:
+                file_path = image_cache[image_name]
+                file = discord.File(file_path, filename=image_name)
+                embed.set_thumbnail(url=f"attachment://{file.filename}")
+            else:
+                embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+                logging.warning(f"{interaction.user} ({interaction.user.id})'s /doc command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
     except:
         ephemeral = True
+        image_name = "command_failed.png"
         embed = discord.Embed(
             title="Documentation",
             description=f"Perhaps the archives are incomplete. There is no such option named {doc_search}. Please try again with a valid option.",
             color=0xff0000
         )
-    await interaction.response.send_message(embed=embed, ephemeral=ephemeral)
+        image_name = "command_failed.png"
+        if image_name in image_cache:
+            file_path = image_cache[image_name]
+            file = discord.File(file_path, filename=image_name)
+            embed.set_thumbnail(url=f"attachment://{file.filename}")
+        else:
+            embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
+            logging.warning(f"{interaction.user} ({interaction.user.id})'s /doc command failure failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
+
+    await interaction.response.send_message(embed=embed, ephemeral=ephemeral, file=file)
 
 
 @bot.tree.command(name="doc", description="Links you to any official BACAP documentation")
@@ -887,16 +920,23 @@ async def autocomplete(interaction: discord.Interaction, current: str) -> list[a
 
 def embed_advancement(advancement, extra_info, color):
     adv_emote = emotes[advancement.get('Category', 'goal')]
+
+    # Parent/Children field will not be shown in embed if it does not exist
+    # Making the description conditional prevents Parent/Children lines that are empty still
+    # showing on embed
+    desc = f"# {adv_emote} {advancement['Advancement Name']} {adv_emote}\n"
+    desc += f"*__{advancement['Description']}__*\n\n"
+
+    desc += f"📈   **Parent**: {advancement.get('Parent', '')}\n" if advancement.get('Parent', '') else "📈   **Parent**: N/A\n"
+    desc += f"📉   **Children**: {advancement.get('Children', '')}\n" if advancement.get('Children', '') else "📉   **Children**: N/A\n"
+
+    desc += f"{extra_info}"
+    desc += f"\n*Part of the __{advancement['adv_tab']}__ tab.*"
+
     return discord.Embed(
         title="Advancement Found!",
-        description=f"# {adv_emote} {advancement['Advancement Name']} {adv_emote}\n"
-                    f"*__{advancement['Description']}__*\n\n"
-                    f"**Parent**: {advancement['Parent']}\n"
-                    f"**Children**: {advancement['Children']}\n"
-                    f"{extra_info}"
-                    f"\n*Part of the __{advancement['adv_tab']}__ tab.*",
+        description=desc,
         color=color
-        
     )
 
 async def generate_adv_embed(interaction: discord.Interaction, advancement: str):
@@ -939,6 +979,8 @@ async def generate_adv_embed(interaction: discord.Interaction, advancement: str)
     
     view = button_logic(interaction.user, pages=[], color=color, tab=advancement["adv_tab"], advancement=advancement, paginated=False)
     await interaction.response.send_message(embed=embed, view=view, file=adv_image_file)
+    
+    view.message = await interaction.original_response()
 
 ## GET ADVANCEMENT COMMAND
 @bot.tree.command(name="advancement", description="Display an advancement of your choice")
@@ -1452,6 +1494,7 @@ bot.run(token)
 
 # END
 
-# ONE THOUSAND
+# ONE THOUSAND FOUR HUNDRED NINETY SEVEN
 
-# ONE THOUSAND TWO HUNDRED SEVENTY SIX
+
+# ONE THOUSAND FIVE HUNDRED
