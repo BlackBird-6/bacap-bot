@@ -16,6 +16,10 @@ v1.3.0
 - Updated advancement view to include the advancement ID
 - Added overrides for base pack advancement icons with additional components
 
+- Increased the resolution of the advancement emojis so they aren't as blurry
+
+- IT'S STILL NOT BUTTER
+
 === changelog v1.2 ===
 
 v1.2.1
@@ -2190,5 +2194,6 @@ bot.run(token)
 
 
 # ONE THOUSAND FIVE HUNDRED
+
 
 # TWO THOUSAND ONE HUNDRED NINETY FOUR
