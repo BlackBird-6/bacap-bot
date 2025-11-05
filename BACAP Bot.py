@@ -129,14 +129,14 @@ with open("Text/token.txt") as file:
 
 # Emotes for BACAP Bot Reloaded
 emotes = {
-    "root": "<:root:1364452913253978175>",
-    "task": "<:task:1335313144859328623>",
-    "goal": "<:goal:1335313109572648960>",
-    "challenge": "<:challenge:1335313097195388979>",
-    "super_challenge": "<:super_challenge:1335313134227034163>",
-    "milestone": "<:milestone:1335313122268938444>",
-    "hidden": "<:hidden:1364451436309516380>",
-    "advancement_legend": "<:advancement_legend:1364451408946003978>",
+    "root": "<:root:1402160357836849152>",
+    "task": "<:task:1402160347573653645>",
+    "goal": "<:goal:1402160314853883904>",
+    "challenge": "<:challenge:1402160299984945224>",
+    "super_challenge": "<:super_challenge:1402160384013762560>",
+    "milestone": "<:milestone:1402160331408543794>",
+    "hidden": "<:hidden:1402160323015741492>",
+    "advancement_legend": "<:advancement_legend:1402161248161759323>",
     "realisticcave_advancement_legend": "<:why_hello_there:1399908690378752040>",
     "custom_dark_red": "<:te_dark_red:1399908791713136792>",
     "custom_#8b00e8": "<:te_purple:1399909009405771927>",
@@ -2215,3 +2215,4 @@ bot.run(token)
 # ONE THOUSAND FIVE HUNDRED
 
 # TWO THOUSAND ONE HUNDRED NINETY FOUR
+
