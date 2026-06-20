@@ -1,13 +1,26 @@
 '''
 --== BACAP BOT: RELOADED ==--
 Coded By: BlackBird_6, saladbowls, and Ktano2o6o8
-Last Updated: 2025-08-05
-Current Version: v1.3.0
+Last Updated: 2025-11-04
+Current Version: v1.3.1
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
 === changelog v1.3 ===
+
+v1.3.2
+- Added the Unlocked Potential, New Horizons, Determination Edition and Slop Edition packs
+- Updated supported BACAP pack version to 1.21
+- Updated versions and documentation commands
+- Autocomplete fields now use fuzzy autocomplete with a score cutoff of 85% to allow for some typos
+- Added "All Addons" and "All" options to /random
+
+
+v1.3.1
+- Added the Suggestion Edition pack by Elag422
+- Updated supported BACAP pack version to 1.20.1
+- Updated versions and documentation commands
 
 v1.3.0
 - Added the addon_advancement command, which displays any advancement from any of the BACAP add-ons
@@ -81,6 +94,7 @@ v1.0r2
 # ALL IMPORTS
 import random
 import re
+import traceback
 
 import discord
 from discord import app_commands
@@ -97,6 +111,8 @@ import os
 import json
 import nbtlib
 import requests
+from io import BytesIO
+from rapidfuzz import process, fuzz, utils
 
 # image function for preloading images
 image_cache = {}
@@ -122,14 +138,14 @@ with open("Text/token.txt") as file:
 
 # Emotes for BACAP Bot Reloaded
 emotes = {
-    "root": "<:root:1364452913253978175>",
-    "task": "<:task:1335313144859328623>",
-    "goal": "<:goal:1335313109572648960>",
-    "challenge": "<:challenge:1335313097195388979>",
-    "super_challenge": "<:super_challenge:1335313134227034163>",
-    "milestone": "<:milestone:1335313122268938444>",
-    "hidden": "<:hidden:1364451436309516380>",
-    "advancement_legend": "<:advancement_legend:1364451408946003978>",
+    "root": "<:root:1402160357836849152>",
+    "task": "<:task:1402160347573653645>",
+    "goal": "<:goal:1402160314853883904>",
+    "challenge": "<:challenge:1402160299984945224>",
+    "super_challenge": "<:super_challenge:1402160384013762560>",
+    "milestone": "<:milestone:1402160331408543794>",
+    "hidden": "<:hidden:1402160323015741492>",
+    "advancement_legend": "<:advancement_legend:1402161248161759323>",
     "realisticcave_advancement_legend": "<:why_hello_there:1399908690378752040>",
     "custom_dark_red": "<:te_dark_red:1399908791713136792>",
     "custom_#8b00e8": "<:te_purple:1399909009405771927>",
@@ -367,7 +383,7 @@ async def real(ctx):
     await ctx.send("https://cdn.discordapp.com/attachments/1317346365906620459/1319402424070311966/1cavinator.png?")
 
 
-desc = "Provided below is a link to the official BACAP documentation!\nhttps://docs.google.com/spreadsheets/d/1PcoZGbYr5FWX28_sSEMh9-W_5_qyGbyvptb_9_4te1w/edit"
+desc = "Provided below is a link to the official BACAP documentation!\nhttps://docs.google.com/spreadsheets/d/1FnjIsl6xwJBjMoOmRn0xfnYWNchrgy6Rst9Uyj74uVQ"
 
 
 # Event listener for messages
@@ -405,9 +421,9 @@ async def on_message(message):
 '''
 ############################ DOCUMENTATION ##############################
 
-BACAP_DOC_KEY = '14-69HHvKP54OsHQZm1zoWSZ36bMPHp6hQSgfp2Xu1nY'
+BACAP_DOC_KEY = '1FnjIsl6xwJBjMoOmRn0xfnYWNchrgy6Rst9Uyj74uVQ'
 sorted_doc_names = {
-    "BACAP 1.19": f"https://docs.google.com/spreadsheets/d/{BACAP_DOC_KEY}/edit?usp=sharing",
+    "BACAP 1.20": f"https://docs.google.com/spreadsheets/d/{BACAP_DOC_KEY}/edit?usp=sharing",
     "Advancement Info Legacy": "https://modrinth.com/mod/advancementinfo",
     "Advancement Info Reloaded": "https://modrinth.com/mod/advancements-reloaded",
     "Advancement Legend Rules": "https://docs.google.com/document/d/1WZsGkN7D9piecNOFLRUNL-5GbAX_0Wgb5rxk6Lo1ess/edit?usp=sharing",
@@ -416,25 +432,24 @@ sorted_doc_names = {
     "Patreon Upcoming Features List": "https://tinyurl.com/y92mxs6r"
 }
 
+def fuzzy_autocomplete(current: str, word_list: list[str]) -> list[str]:
+    if current:
+        fresults = []
+
+        fuzzy_results = process.extract(current, word_list, scorer=fuzz.partial_ratio, processor=utils.default_process, limit=25,score_cutoff=85)
+
+        for fresult, _, _ in fuzzy_results:
+            if truncate_to_alnum(fresult).startswith(truncate_to_alnum(current)):
+                fresults.insert(0, fresult)
+            else:
+                fresults.append(fresult)
+        
+        return fresults
+    else:
+        return word_list[:25]
+
 async def doc_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    results = []
-    for result in sorted_doc_names:
-        if len(results) == 25:
-            break
-        doc_name = result
-        if doc_name.lower().startswith(current.lower()):
-            results.append(app_commands.Choice(name=doc_name, value=doc_name))
-
-    for result in sorted_doc_names:
-        if len(results) == 25:
-            break
-        doc_name = result
-        choice = app_commands.Choice(name=doc_name, value=doc_name)
-
-        if choice not in results:
-            if current.lower() in doc_name.lower():
-                results.append(choice)
-    return results
+    return ([app_commands.Choice(name=doc_name, value=doc_name) for doc_name in fuzzy_autocomplete(current, list(sorted_doc_names.keys()))])
 
 
 async def show_documentation(interaction: discord.Interaction, doc_search: str):
@@ -734,8 +749,8 @@ def access_BACAP_datapack():
     global adv_namespace
 
     # Remember to update this
-    adv_directories = ["./packs/BlazeandCaves Advancements Pack 1.19/data/blazeandcave/advancement",
-                       "./packs/BlazeandCaves Advancements Pack 1.19/data/minecraft/advancement"]
+    adv_directories = ["./packs/BlazeandCave's Advancements Pack 1.21/data/blazeandcave/advancement",
+                       "./packs/BlazeandCave's Advancements Pack 1.21/data/minecraft/advancement"]
     adv_paths = []
     adv_namespace = []
 
@@ -852,8 +867,10 @@ def access_BACAP_datapack():
                         'CRAFTING A NEW LOOK': 'custom/crafting_a_new_look', 
                         "I'VE GOT A BAD FEELING ABOUT THIS": 'custom/ominous_banner', 
                         'LIGHT AS A RABBIT': 'custom/light_boots', 
-                        'WHOS\'S THE PILLAGER NOW?': 'custom/pillager_head', 
-                        'NOT TODAY, THANK YOU': 'custom/bone_shield'
+                        'WHO\'S THE PILLAGER NOW?': 'custom/pillager_head', 
+                        'NOT TODAY, THANK YOU': 'custom/bone_shield',
+                        'RIDE OR DRY': 'custom/charged_crossbow',
+                        'UNWANTED PASSENGER': 'custom/weakness_arrow'
                     }
 
                     if title.upper() in blacklist:
@@ -883,8 +900,12 @@ def access_BACAP_datapack():
 def truncate_to_namespace(id: str):
     return id.split(':')[1].replace('/','_')
 
+def truncate_to_alnum(text: str):
+    return re.sub(r'[^a-z0-9]', '', text.lower())
+
 # The great add-on reader
 def access_BACAP_addons():
+    global all_addon_advs
     global addon_advs
     global addon_adv_index
     global sorted_addon_adv_names
@@ -996,7 +1017,7 @@ def access_BACAP_addons():
                         adv_namespace.append(namespace)
                         addon_adv_namespace.append(namespace)
         except Exception as e:
-            logging.warning(f'Failed to load addon {addon}: {e}')
+            logging.warning(f'Failed to load addon {addon}: {e} (line {traceback.extract_tb(e.__traceback__)[-1].lineno})')
             continue
 
         # Iterates through the advancements in the path list
@@ -1019,7 +1040,10 @@ def access_BACAP_addons():
                     title = title_data['translate' if title_data.get('translate') else 'text']
                     if title_data.get('extra'):
                         for extra in title_data['extra']:
-                            title += extra['translate' if extra.get('translate') else 'text']
+                            if isinstance(extra, dict):
+                                title += extra['translate' if extra.get('translate') else 'text'] if not extra['translate' if extra.get('translate') else 'text'].isspace() else ''
+                            else:
+                                title += extra
                 else:
                     title = title_data
 
@@ -1183,15 +1207,17 @@ def access_BACAP_addons():
                     with open(trophy_function,'r',encoding='utf-8') as trophy_reward_file:
                         trophy_file_lines = [command.replace('\\','') for command in trophy_reward_file.readlines()]
                         for command in trophy_file_lines:
-                            if command.startswith('tellraw'):
-                                try:
-                                    trophy_nbt = nbtlib.parse_nbt(command[command.find('{'):])
-                                    trophy = trophy_nbt['extra'][0]['translate']
-                                    break
-                                except:
-                                    trophy_nbt = nbtlib.parse_nbt(command[command.find('['):])
-                                    trophy = trophy_nbt[1]['translate']
-                                    break
+                            if command.startswith('give'):
+                                item = command.split(' ', 2)[2]
+                                if item[-1].isdigit():
+                                    item = item.rsplit(' ', 1)[0]
+                                component_str = f"[{item.split("[", 1)[1]}"
+
+                                component = components_dict(component_str)
+                                name_component = nbtlib.parse_nbt(component.get("minecraft:custom_name", component.get("custom_name")))
+
+                                trophy = text_component_to_str(name_component)
+                                break
                         else:
                             trophy = ''
                 else:
@@ -1203,7 +1229,7 @@ def access_BACAP_addons():
 
                 addon_advs[addon].append(adv_dict)
             except Exception as e:
-                logging.warning(f'Failed to load advancement {addon_adv_path.split('data/',1)[1].replace('/advancement/',':').replace('.json','')} in addon {addon}: {e}')
+                logging.warning(f'Failed to load advancement {addon_adv_path.split('data/',1)[1].replace('/advancement/',':').replace('.json','')} in addon {addon}: {e}  (line {traceback.extract_tb(e.__traceback__)[-1].lineno})')
 
         # Creates index and finds children after loop is finished
         addon_adv_index[addon] = {}
@@ -1221,6 +1247,9 @@ def access_BACAP_addons():
             addon_advs[addon][i]['Children'] = ', '.join(children_list)
 
         logging.info(f'Loaded {len(addon_advs[addon])} advancements from addon {addon}')
+    
+    all_addon_advs = [adv for adv_list in addon_advs.values() for adv in adv_list]
+    logging.info(f'Loaded {len(all_addon_advs)} addon advancements in total')
 
 
 def namespace_to_dir(function: str, addon: str, overlays: str, mode: str = 'advancement'):
@@ -1259,7 +1288,7 @@ def find_tab(adv_id: str, addon: str, overlays: str):
                             with open(namespace_to_dir(adv_id, addon, overlays),'r',encoding='utf-8') as f:
                                 parent_data = json.load(f)
                         except FileNotFoundError:
-                            with open(namespace_to_dir(adv_id, addon, overlays).replace(f'addons/{addon}','Blazeandcaves Advancements Pack 1.19'),'r',encoding='utf-8') as f:
+                            with open(namespace_to_dir(adv_id, addon, overlays).replace(f'addons/{addon}',"BlazeandCave's Advancements Pack 1.21"),'r',encoding='utf-8') as f:
                                 parent_data = json.load(f)
                         return find_tab(parent_data['parent'], addon, overlays) 
                     
@@ -1269,7 +1298,7 @@ def find_parent(parent_adv_id: str, title: str, addon: str, overlays: str):
             split_parent_adv_id = parent_adv_id.split(':')
 
             if f'{split_parent_adv_id[0]}/advancement/{split_parent_adv_id[1]}.json' in adv_namespace and f'{split_parent_adv_id[0]}/advancement/{split_parent_adv_id[1]}.json' not in addon_adv_namespace and parent_adv_id != 'minecraft:husbandry/obtain_netherite_hoe':
-                parent_adv_path = f'./packs/Blazeandcaves Advancements Pack 1.19/data/{split_parent_adv_id[0]}/advancement/{split_parent_adv_id[1]}.json'
+                parent_adv_path = f"./packs/BlazeandCave's Advancements Pack 1.21/data/{split_parent_adv_id[0]}/advancement/{split_parent_adv_id[1]}.json"
                 add_base_pack_note = True
             else:
                 parent_adv_path = namespace_to_dir(parent_adv_id, addon, overlays)
@@ -1292,7 +1321,7 @@ def find_parent(parent_adv_id: str, title: str, addon: str, overlays: str):
                 if add_base_pack_note:
                     for adv_dict in advs:
                         if adv_dict['Advancement Name'] == parent:
-                            parent += f' **(from {adv_dict['adv_tab']} tab)**'
+                            parent += f' **(from BACAP)**'
                             break                   
                 else:
                     global addon_children_list
@@ -1301,6 +1330,81 @@ def find_parent(parent_adv_id: str, title: str, addon: str, overlays: str):
             else:
                 parent_adv_parent = parent_adv['parent']
                 return find_parent(parent_adv_parent, title, addon, overlays)
+    
+def components_dict(components: str) -> dict[str, str]:
+    # Strips first square bracket
+    components = components[1:]
+    component_dict = {}
+    split_components = components
+
+    while True:
+        # Delete space padding from front
+        split_components = split_components.lstrip()
+
+        if "=" not in split_components:
+            print(split_components)
+
+        key, split_components = split_components.split("=", 1)
+        opening_stack = []
+        escape = False
+        for i, char in enumerate(split_components):
+            # Escape character
+            if char == '\\' or escape:
+                escape = not escape
+                continue
+            # Quotations
+            elif char in ['"', "'"]:
+                if opening_stack and opening_stack[-1] in ['"', "'"]:
+                    if char == opening_stack[-1]:
+                        opening_stack.pop()
+                else:
+                    opening_stack.append(char)
+
+            # Opening brackets (I don't think round brackets are used but I'm including them anyway)
+            elif char in ['(', '{', '[']:
+                if not opening_stack or opening_stack[-1] not in ['"', "'"]:
+                    opening_stack.append(char)
+            
+            # Closing brackets
+            elif char in [')', '}', ']']:
+                if opening_stack and opening_stack[-1] not in ['"', "'"]:
+                    if not ((char == ')' and opening_stack[-1] == '(') or (char == ']' and opening_stack[-1] == '[') or (char == '}' and opening_stack[-1] == '{')):
+                        logging.warning(f"Mismatching bracket in component {components}")
+                    opening_stack.pop()
+
+            # Comma
+            elif char == ',':
+                if not opening_stack:
+                    value = split_components[:i]
+                    split_components = split_components[i+1:]
+                    component_dict[key] = value
+                    break
+        else:
+            value = split_components[:i]
+            split_components = split_components[i+1:]
+            component_dict[key] = value
+            break
+    return component_dict
+
+def text_component_to_str(component: nbtlib.String | nbtlib.List | nbtlib.Compound) -> str:
+    string = ""
+
+    if isinstance(component, nbtlib.String):
+        string = str(component)
+
+    elif isinstance(component, nbtlib.List):
+        for subcomponent in component:
+            string += text_component_to_str(subcomponent)
+
+    else:
+        string += str(component.get('translate', component.get('text')))
+        
+        if component.get("extra"):
+            for extra in component.get("extra"):
+                string += text_component_to_str(extra)
+    
+    return string
+    
 
 def build_adv_icons():
     text_colors = {
@@ -1337,76 +1441,88 @@ def build_adv_icons():
             os.makedirs(f"images/bacap/addons/{addon}", exist_ok=True)
 
     for adv in advs + [addon_adv for addon_list in addon_advs.values() for addon_adv in addon_list]:
-
-        item_name = adv['Icon']
-        frame_name = adv['Category']
-
-        if not os.path.exists(f"images/bacap"):
-            os.mkdir(f"images/bacap")
-
-        # Load images for the frame and item
         try:
-            if frame_name.startswith('custom;'):
-                # Custom frame maker
-                frame_color, frame_shape = frame_name.split(';')[1:]
-                if os.path.exists(f"images/frames/custom/{frame_color}_{frame_shape}.png"):
-                    frame = Image.open(f"images/frames/custom/{frame_color}_{frame_shape}.png").convert('RGBA')
+            item_name = adv['Icon']
+            frame_name = adv['Category']
+
+            if not os.path.exists(f"images/bacap"):
+                os.mkdir(f"images/bacap")
+
+            # Load images for the frame and item
+            try:
+                if frame_name.startswith('custom;'):
+                    # Custom frame maker
+                    frame_color, frame_shape = frame_name.split(';')[1:]
+                    if os.path.exists(f"images/frames/custom/{frame_color}_{frame_shape}.png"):
+                        frame = Image.open(f"images/frames/custom/{frame_color}_{frame_shape}.png").convert('RGBA')
+                    else:
+                        if frame_color in text_colors.keys():
+                            frame_color = text_colors[frame_color]
+                        elif frame_color.startswith('#'):
+                            frame_color = (int(frame_color[1:3], 16), int(frame_color[3:5], 16), int(frame_color[5:7], 16))
+                        else:
+                            logging.warning(f'Invalid color {frame_color} found in advancement {adv['Advancement Name']}, defaulting to #FFFFFF')
+                            frame_color = '#FFFFFF'
+
+                        frame = Image.open(f"images/frames/{frame_shape}_raw.png").convert("RGBA")
+                        frame_data = frame.load()
+                        for x in range(frame.width):
+                            for y in range(frame.height):
+                                r, g, b, a = frame_data[x, y]
+                                frame_data[x, y] = (r*frame_color[0]//255, g*frame_color[1]//255, b*frame_color[2]//255, a)
+                        frame.save(f"images/frames/custom/{'_'.join(frame_name.split(';')[1:])}.png")
                 else:
-                    if frame_color in text_colors.keys():
-                        frame_color = text_colors[frame_color]
-                    elif frame_color.startswith('#'):
-                        frame_color = (int(frame_color[1:3], 16), int(frame_color[3:5], 16), int(frame_color[5:7], 16))
-                    else:
-                        logging.warning(f'Invalid color {frame_color} found in advancement {adv['Advancement Name']}, defaulting to #FFFFFF')
-                        frame_color = '#FFFFFF'
+                    frame = Image.open(f"images/frames/{frame_name}.png").convert("RGBA")
+                try:
+                    item = Image.open(f"images/mc_textures/{item_name}.png").convert("RGBA")
+                except FileNotFoundError:
+                    logging.warning(f"Texture for item {item_name} not found, downloading")
 
-                    frame = Image.open(f"images/frames/{frame_shape}_raw.png").convert("RGBA")
-                    frame_data = frame.load()
-                    for x in range(frame.width):
-                        for y in range(frame.height):
-                            r, g, b, a = frame_data[x, y]
-                            frame_data[x, y] = (r*frame_color[0]//255, g*frame_color[1]//255, b*frame_color[2]//255, a)
-                    frame.save(f"images/frames/custom/{'_'.join(frame_name.split(';')[1:])}.png")
-            else:
-                frame = Image.open(f"images/frames/{frame_name}.png").convert("RGBA")
-            item = Image.open(f"images/mc_textures/{item_name}.png").convert("RGBA")
+                    image_url = f'https://raw.githubusercontent.com/Owen1212055/mc-assets/refs/heads/main/item-assets/{item_name.removeprefix('minecraft_').upper()}.png'
+                    response = requests.get(image_url)
+                    response.raise_for_status()
+                    image_data = BytesIO(response.content)
+                    item = Image.open(image_data).resize((64, 64), Image.Resampling.NEAREST).convert("RGBA")
+                    item.save(f"images/mc_textures/{item_name}.png")
+            except Exception as e:
+                logging.warning(f"File could not be found for advancement {adv['Advancement Id']}, with error {e}")
+
+            try:
+                # Make enchanted version
+                if adv["Enchanted"]:
+                    ench_item = item.copy()
+                    ench_item.alpha_composite(glint_half_strength,(0,0),(0,0))
+
+                    img_pixels = []
+                    for r, g, b, a in ench_item.getdata():
+                        if a < 255:
+                            img_pixels.append((r, g, b, 0))
+                        else:
+                            img_pixels.append((r, g, b, 255))
+
+                    ench_item = Image.new("RGBA", (64, 64))
+                    ench_item.putdata(img_pixels)
+
+                    # Enchanted item and normal item take the exact same set of pixels so no new copy is necessary
+                    new_frame = frame.copy()
+                    new_frame.paste(item, (20, 20), item) # Paste the original item first to eliminate transparency bugs
+                    new_frame.paste(ench_item, (20, 20), ench_item)
+                
+                # Make normal version
+                else:
+                    new_frame = frame.copy()
+                    new_frame.paste(item, (20, 20), item)
+
+                # Saves image    
+                if adv.get('Add-on'): # Base pack advs have this while add-on advs don't
+                    new_frame.save(f"images/bacap/addons/{adv['Add-on']}/{truncate_to_namespace(adv['Advancement Id'])}.png")
+                else:
+                    new_frame.save(f"images/bacap/{truncate_to_namespace(adv['Advancement Id'])}.png")
+
+            except Exception as e:
+                logging.warning(f"Icon for {adv} could not be built, giving error {e}")
         except Exception as e:
-            logging.warning(f"File could not be found for advancement {adv['Advancement Id']}, with error {e}")
-
-        try:
-            # Make enchanted version
-            if adv["Enchanted"]:
-                ench_item = item.copy()
-                ench_item.alpha_composite(glint_half_strength,(0,0),(0,0))
-
-                img_pixels = []
-                for r, g, b, a in ench_item.getdata():
-                    if a < 255:
-                        img_pixels.append((r, g, b, 0))
-                    else:
-                        img_pixels.append((r, g, b, 255))
-
-                ench_item = Image.new("RGBA", (64, 64))
-                ench_item.putdata(img_pixels)
-
-                # Enchanted item and normal item take the exact same set of pixels so no new copy is necessary
-                new_frame = frame.copy()
-                new_frame.paste(item, (20, 20), item) # Paste the original item first to eliminate transparency bugs
-                new_frame.paste(ench_item, (20, 20), ench_item)
-            
-            # Make normal version
-            else:
-                new_frame = frame.copy()
-                new_frame.paste(item, (20, 20), item)
-
-            # Saves image    
-            if adv.get('Add-on'): # Base pack advs have this while add-on advs don't
-                new_frame.save(f"images/bacap/addons/{adv['Add-on']}/{truncate_to_namespace(adv['Advancement Id'])}.png")
-            else:
-                new_frame.save(f"images/bacap/{truncate_to_namespace(adv['Advancement Id'])}.png")
-
-        except Exception as e:
-            logging.warning(f"{adv} could not be built, giving error {e}")
+            logging.error(f"Icon for {adv} could not be built, giving error {e}")
 
     logging.info(f"{len(advs + [addon_adv for addon_list in addon_advs.values() for addon_adv in addon_list])} advancement icons built!")
 
@@ -1428,6 +1544,12 @@ async def refresh(interaction: discord.Interaction):
 
         # Reload the advancements from the sheet
         access_sheet(BACAP_DOC_KEY)
+
+        access_BACAP_datapack()
+
+        access_BACAP_addons()
+
+        build_adv_icons()
 
         # Send a follow-up message after processing
         await interaction.followup.send("*All advancements have been reloaded successfully.*")
@@ -1470,24 +1592,7 @@ async def refresh(interaction: discord.Interaction):
 
 # ADVANCEMENT AUTOCOMPLETE
 async def autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    results = []
-    for result in sorted_adv_names:
-        if len(results) == 25:
-            break
-        adv_name = result
-        if adv_name.lower().startswith(current.lower()):
-            results.append(app_commands.Choice(name=adv_name, value=adv_name))
-
-    for result in sorted_adv_names:
-        if len(results) == 25:
-            break
-        adv_name = result
-        choice = app_commands.Choice(name=adv_name, value=adv_name)
-
-        if choice not in results:
-            if current.lower() in adv_name.lower():
-                results.append(choice)
-    return results
+    return ([app_commands.Choice(name=fresult, value=fresult) for fresult in fuzzy_autocomplete(current, sorted_adv_names)])
 
 def embed_advancement(advancement, extra_info, color):
     if emotes.get(advancement.get('Category','goal')):
@@ -1582,45 +1687,12 @@ async def get_advancement(interaction: discord.Interaction, advancement_search: 
 
 ## ADDON ADVANCEMENT AUTOCOMPLETES
 async def addon_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    results = []
-    for result in addon_list:
-        if len(results) == 25:
-            break
-        addon_name = result
-        if addon_name.lower().startswith(current.lower()):
-            results.append(app_commands.Choice(name=addon_name, value=addon_name))
-
-    for result in addon_list:
-        if len(results) == 25:
-            break
-        addon_name = result
-        choice = app_commands.Choice(name=addon_name, value=addon_name)
-
-        if choice not in results:
-            if current.lower() in addon_name.lower():
-                results.append(choice)
-    return results
+    return ([app_commands.Choice(name=addon_name, value=addon_name) for addon_name in fuzzy_autocomplete(current, addon_list + ["All Addons", "All"])])
 
 async def addon_adv_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     selected_addon = interaction.namespace.addon
     if selected_addon in addon_list:
-        results = []
-        for result in sorted_addon_adv_names[selected_addon]:
-            if len(results) == 25:
-                break
-            adv_name = result
-            if adv_name.lower().startswith(current.lower()):
-                results.append(app_commands.Choice(name=adv_name, value=adv_name))
-
-        for result in sorted_addon_adv_names[selected_addon]:
-            if len(results) == 25:
-                break
-            adv_name = result
-            choice = app_commands.Choice(name=adv_name, value=adv_name)
-
-            if choice not in results:
-                if current.lower() in adv_name.lower():
-                    results.append(choice)
+        return ([app_commands.Choice(name=adv_name, value=adv_name) for adv_name in fuzzy_autocomplete(current, sorted_addon_adv_names[selected_addon])])
     else:
         results = []
     return results
@@ -1672,6 +1744,12 @@ async def random_advancement(interaction: discord.Interaction, addon: str | None
         if addon == None:
             random_adv = advs[random.randrange(0, len(advs))]
             await generate_adv_embed(interaction, random_adv)
+        elif addon == "All Addons":
+            random_adv = all_addon_advs[random.randrange(0, len(all_addon_advs))]
+            await generate_adv_embed(interaction, random_adv)
+        elif addon == "All":
+            random_adv = (advs + all_addon_advs)[random.randrange(0, len((advs + all_addon_advs)))]
+            await generate_adv_embed(interaction, random_adv)
         elif addon in addon_list:
             random_adv = addon_advs[addon][random.randrange(0, len(addon_advs[addon]))]
             await generate_adv_embed(interaction, random_adv)
@@ -1695,24 +1773,8 @@ async def random_advancement(interaction: discord.Interaction, addon: str | None
 
 ## TAB COMMAND AUTOCOMPLETE
 async def tab_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    results = []
-
     tabs = {adv["adv_tab"] for adv in advs}
-    for tab_name in tabs:
-        if len(results) == 25:
-            break
-        if tab_name.lower().startswith(current.lower()):
-            results.append(app_commands.Choice(name=tab_name, value=tab_name))
-
-    for tab_name in tabs:
-        if len(results) == 25:
-            break
-        choice = app_commands.Choice(name=tab_name, value=tab_name)
-
-        if choice not in results:
-            if current.lower() in tab_name.lower():
-                results.append(choice)
-    return results
+    return ([app_commands.Choice(name=tab_name, value=tab_name) for tab_name in fuzzy_autocomplete(current, tabs)])
 
 
 ## TAB COMMAND
@@ -1798,24 +1860,7 @@ sorted_help_commands = {
 
 # HELP AUTOCOMPLETE
 async def help_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    results = []
-    for result in dict(sorted({**sorted_help_commands, 'help': ''}.items())):
-        if len(results) == 25:
-            break
-        help_name = result
-        if help_name.lower().startswith(current.lower()):
-            results.append(app_commands.Choice(name=help_name, value=help_name))
-
-    for result in dict(sorted({**sorted_help_commands, 'help': ''}.items())):
-        if len(results) == 25:
-            break
-        help_name = result
-        choice = app_commands.Choice(name=help_name, value=help_name)
-
-        if choice not in results:
-            if current.lower() in help_name.lower():
-                results.append(choice)
-    return results
+    return ([app_commands.Choice(name=help_name, value=help_name) for help_name in fuzzy_autocomplete(current, list(sorted_help_commands.keys()) + ["help"])])
 
 
 ## HELP COMMAND
@@ -1868,7 +1913,7 @@ async def help_command(interaction: discord.Interaction, help: str):
             searge_says = [
                 'Yolo',
                 f'/advancement revoke {interaction.user.display_name} only discord:understand_commands',
-                'relay your query to the crew*http://e.gv/LiveInstant-Chat',
+                '451',
                 f'/deop {interaction.user.display_name}',
                 'Scoreboard deleted, commands blocked',
                 'Contact helpdesk for help',
@@ -1877,7 +1922,8 @@ async def help_command(interaction: discord.Interaction, help: str):
                 'Oh my god, it\'s full of stats',
                 f'/kill @p[name=!{bot.user.display_name}]',
                 'Have you tried turning it off and on again?',
-                'Sorry, no help today'
+                'Sorry, no help today',
+                'Buy more cards!'
             ]
             embed.description = random.choice(searge_says)
 
@@ -1920,30 +1966,17 @@ version_dict = {
     "BACAP 1.18.2 (for MC 1.21.5)": "https://www.mediafire.com/file/h4zolq1ykgxum01/BlazeandCave%2527s_Advancements_Pack_1.18.2.zip/file",
     "BACAP 1.18.3 (for MC 1.21.5)": "https://www.mediafire.com/file/vyljk8r2vd1jjlm/BlazeandCave%2527s_Advancements_Pack_1.18.3.zip/file",
     "BACAP 1.19 (for MC 1.21.6)": "https://www.mediafire.com/file/kjihn47u1txundg/BlazeandCave%2527s_Advancements_Pack_1.19.zip/file",
-    "BACAP 1.19.1 (for MC 1.21.7 or 1.21.8)": "https://www.mediafire.com/file/op98gugusyx3d9j/BlazeandCave%2527s_Advancements_Pack_1.19.1.zip/file"
+    "BACAP 1.19.1 (for MC 1.21.7 or 1.21.8)": "https://www.mediafire.com/file/op98gugusyx3d9j/BlazeandCave%2527s_Advancements_Pack_1.19.1.zip/file",
+    "BACAP 1.20.1 (for MC 1.21.9 or 1.21.10)": "https://www.mediafire.com/file/t17w0trx54ma08c/BlazeandCave%2527s_Advancements_Pack_1.20.1.zip/file",
+    "BACAP 1.20.2 (for MC 1.21.11)": "https://www.mediafire.com/file/9msw27161js6x60/BlazeandCave%2527s_Advancements_Pack_1.20.2.zip/file",
+    "BACAP 1.20.3 (for MC 26.1)": "https://www.mediafire.com/file/z5x3r2gzscrd4ui/BlazeandCave%2527s_Advancements_Pack_1.20.3.zip/file",
+    "BACAP 1.21 (for MC 26.2)": "https://www.mediafire.com/file/klye4ezhlo2yrfj/BlazeandCave%2527s_Advancements_Pack_1.21.zip/file"
 }
 
 
 # VERSION AUTOCOMPLETE
 async def version_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    results = []
-    for result in version_dict:
-        if len(results) == 25:
-            break
-        version_name = result
-        if version_name.lower().startswith(current.lower()):
-            results.append(app_commands.Choice(name=version_name, value=version_name))
-
-    for result in version_dict:
-        if len(results) == 25:
-            break
-        version_name = result
-        choice = app_commands.Choice(name=version_name, value=version_name)
-
-        if choice not in results:
-            if current.lower() in version_name.lower():
-                results.append(choice)
-    return results
+    return ([app_commands.Choice(name=version_name, value=version_name) for version_name in fuzzy_autocomplete(current, list(version_dict.keys()))])
 
 
 ## VERSION COMMAND
@@ -2192,3 +2225,4 @@ bot.run(token)
 # ONE THOUSAND FIVE HUNDRED
 
 # TWO THOUSAND ONE HUNDRED NINETY FOUR
+
