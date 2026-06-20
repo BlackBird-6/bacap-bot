@@ -148,9 +148,15 @@ emotes = {
     "advancement_legend": "<:advancement_legend:1402161248161759323>",
     "realisticcave_advancement_legend": "<:why_hello_there:1399908690378752040>",
     "custom_dark_red": "<:te_dark_red:1399908791713136792>",
-    "custom_#8b00e8": "<:te_purple:1399909009405771927>",
+    "custom_#8B00E8": "<:te_purple:1399909009405771927>",
     "custom_black": "<:te_black:1399909069472399492>",
     "custom_dark_green": "<:terralithic:1399909122484342815>",
+    "custom_#49DB49": "<:task:1402160347573653645>",
+    "custom_#63BDD7": "<:goal:1402160314853883904>",
+    "custom_#C900C7": "<:challenge:1402160299984945224>",
+    "custom_#DC2727": "<:super_challenge:1402160384013762560>",
+    "custom_#DE4ADC": "<:hidden:1402160323015741492>",
+    "custom_#FF4E8A": "<:why_hello_there:1399908690378752040>",
     "": ""  # Add more when necessary
 } if not test else { # Emotes for test bot
     "root": "<:root:1399529786283528223>",
@@ -163,9 +169,15 @@ emotes = {
     "advancement_legend": "<:advancement_legend:1399529940151570595>",
     "realisticcave_advancement_legend": "<:why_hello_there:1399529969549574344>",
     "custom_dark_red": "<:te_dark_red:1399529017006227456>",
-    "custom_#8b00e8": "<:te_purple:1399528441333940305>",
+    "custom_#8B00E8": "<:te_purple:1399528441333940305>",
     "custom_black": "<:te_black:1399528340531970198>",
     "custom_dark_green": "<:terralithic:1399528786864902264>",
+    "custom_#49DB49": "<:task:1399529800519127052>",
+    "custom_#63BDD7": "<:goal:1399529815396057088>",
+    "custom_#C900C7": "<:challenge:1399529829472403508>",
+    "custom_#DC2727": "<:super_challenge:1399529866948513823>",
+    "custom_#DE4ADC": "<:hidden:1399528697849053344>",
+    "custom_#FF4E8A": "<:why_hello_there:1399529969549574344>",
     "": "" # Add more when necessary
 }
 
@@ -387,7 +399,7 @@ desc = "Provided below is a link to the official BACAP documentation!\nhttps://d
 
 
 # Event listener for messages
-'''
+
 @bot.event
 async def on_message(message):
     # Avoid responding to bot's own messages
@@ -400,25 +412,25 @@ async def on_message(message):
     #     await message.channel.send("Nice!")
 
     # 65
-    if " 65 " in message.content or message.content.endswith(" 65") or message.content.startswith("65 "):
-        await message.channel.send(
-            "https://cdn.discordapp.com/attachments/632404721537253376/632628242045730819/unknown.png")
+    # if " 65 " in message.content or message.content.endswith(" 65") or message.content.startswith("65 "):
+    #     await message.channel.send(
+    #         "https://cdn.discordapp.com/attachments/632404721537253376/632628242045730819/unknown.png")
 
     # 1 in 10 Nice!
-    if message.content == "Nice!" and random.randint(1, 10) == 5:
-        await message.channel.send("Nice!")
+    # if message.content == "Nice!" and random.randint(1, 10) == 5:
+    #     await message.channel.send("Nice!")
 
     # 1 in 1,000 to contribute to #cave-cult
-    if message.content == "Cave" and random.randint(1, 1000) == 69:
+    if message.channel.id == 828607465188360223 and message.content == "Cave" and random.randint(1, 1000) == 69:
         await message.channel.send("Cave")
 
     # 1 in 10,000 BACAP3
-    if random.randint(1, 10000) == 69:
-        await message.channel.send("Be sure to play BACAP3!")
+    # if random.randint(1, 10000) == 69:
+    #     await message.channel.send("Be sure to play BACAP3!")
 
     # Ensure other commands still work
     await bot.process_commands(message)
-'''
+
 ############################ DOCUMENTATION ##############################
 
 BACAP_DOC_KEY = '1FnjIsl6xwJBjMoOmRn0xfnYWNchrgy6Rst9Uyj74uVQ'
@@ -1064,6 +1076,8 @@ def access_BACAP_addons():
 
                 if isinstance(adv['display']['description'], dict) and adv['display']['description'].get('color'):
                     adv_color = adv['display']['description']['color']
+                    if adv_color.startswith('#'):
+                        adv_color = adv_color.upper()
                 elif frame == 'challenge':
                     adv_color = 'dark_purple'
                 else:
@@ -1598,7 +1612,7 @@ def embed_advancement(advancement, extra_info, color):
     if emotes.get(advancement.get('Category','goal')):
         adv_emote = emotes.get(advancement.get('Category','goal'))
     elif advancement.get('Category').startswith('custom;'):
-        adv_emote = emotes.get(f"custom_{advancement.get('Category').split(';')[1]}")
+        adv_emote = emotes.get(f"custom_{advancement.get('Category').split(';')[1]}", "🛃")
     else:
         adv_emote = '🛃'
     
@@ -1687,6 +1701,9 @@ async def get_advancement(interaction: discord.Interaction, advancement_search: 
 
 ## ADDON ADVANCEMENT AUTOCOMPLETES
 async def addon_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    return ([app_commands.Choice(name=addon_name, value=addon_name) for addon_name in fuzzy_autocomplete(current, addon_list)])
+
+async def addon_autocomplete_with_all(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     return ([app_commands.Choice(name=addon_name, value=addon_name) for addon_name in fuzzy_autocomplete(current, addon_list + ["All Addons", "All"])])
 
 async def addon_adv_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -1736,7 +1753,7 @@ async def get_addon_advancement(interaction: discord.Interaction, addon: str, ad
         await interaction.response.send_message(embed=embed,ephemeral=True)
 
 @bot.tree.command(name="random", description="Displays a random advancement (supports add-ons)")
-@app_commands.autocomplete(addon=addon_autocomplete)
+@app_commands.autocomplete(addon=addon_autocomplete_with_all)
 @app_commands.describe(addon="Add-on to pick a random advancement from (leave blank to pick from the regular pack)")
 async def random_advancement(interaction: discord.Interaction, addon: str | None):
     logging.info(f"/random command was ran by {interaction.user} ({interaction.user.id}) Input: {addon}")
