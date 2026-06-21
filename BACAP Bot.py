@@ -386,7 +386,7 @@ async def on_message(message):
 
 BACAP_DOC_KEY = '1FnjIsl6xwJBjMoOmRn0xfnYWNchrgy6Rst9Uyj74uVQ'
 sorted_doc_names = {
-    "BACAP 1.20": f"https://docs.google.com/spreadsheets/d/{BACAP_DOC_KEY}/edit?usp=sharing",
+    "BACAP 1.21": f"https://docs.google.com/spreadsheets/d/{BACAP_DOC_KEY}/edit?usp=sharing",
     "Advancement Info Legacy": "https://modrinth.com/mod/advancementinfo",
     "Advancement Info Reloaded": "https://modrinth.com/mod/advancements-reloaded",
     "Advancement Legend Rules": "https://docs.google.com/document/d/1WZsGkN7D9piecNOFLRUNL-5GbAX_0Wgb5rxk6Lo1ess/edit?usp=sharing",

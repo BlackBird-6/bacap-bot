@@ -1,6 +1,8 @@
 # BACAP BOT: RELOADED
 Coded By: BlackBird_6, saladbowls, and Ktano2o6o8 
+
 Last Updated: 2026-06-20
+
 Current Version: v1.4.0
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
@@ -86,7 +88,8 @@ Shows advancement names, rewards, requirements, and much much more!
 - Reactive messages disabled due to bot spam/abuse (this is why we can't have nice things)
 
 - i still can't believe it's not butter
+
 ## End of changelog
 
 
-© 2025. "The BACAP Bot" All rights reserved.
+© 2026. "The BACAP Bot" All rights reserved.
