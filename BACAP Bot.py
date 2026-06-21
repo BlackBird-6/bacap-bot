@@ -1761,7 +1761,7 @@ async def random_advancement(interaction: discord.Interaction, addon: str | None
 ## TAB COMMAND AUTOCOMPLETE
 async def tab_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     tabs = {adv["adv_tab"] for adv in advs}
-    return ([app_commands.Choice(name=tab_name, value=tab_name) for tab_name in fuzzy_autocomplete(current, tabs)])
+    return ([app_commands.Choice(name=tab_name, value=tab_name) for tab_name in fuzzy_autocomplete(current, list(tabs))])
 
 
 ## TAB COMMAND
