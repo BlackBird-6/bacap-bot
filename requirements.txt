@@ -1,7 +1,8 @@
 discord.py==2.5.2
-google_api_python_client==2.176.0
+google-api-python-client==2.176.0
 gspread==6.2.1
 nbtlib==2.0.4
 Pillow==11.3.0
 protobuf==6.31.1
-Requests==2.32.4
+rapidfuzz==3.14.5
+requests==2.32.4

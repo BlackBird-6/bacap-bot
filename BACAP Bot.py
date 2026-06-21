@@ -1,21 +1,23 @@
 '''
 --== BACAP BOT: RELOADED ==--
-Coded By: BlackBird_6, saladbowls, and Ktano2o6o8
-Last Updated: 2025-11-04
-Current Version: v1.3.1
+Coded By: BlackBird_6, saladbowls, and Ktano2o6o8 
+Last Updated: 2026-06-20
+Current Version: v1.4.0
 
 A general-purpose discord bot to assist with playing BlazeandCave's Advancement Pack!
 Shows advancement names, rewards, requirements, and much much more!
 
-=== changelog v1.3 ===
+=== changelog v1.4 ===
 
-v1.3.2
+v1.4.0
 - Added the Unlocked Potential, New Horizons, Determination Edition and Slop Edition packs
 - Updated supported BACAP pack version to 1.21
 - Updated versions and documentation commands
 - Autocomplete fields now use fuzzy autocomplete with a score cutoff of 85% to allow for some typos
 - Added "All Addons" and "All" options to /random
+- Allow BACAP Bot to be used in DMs and private group chats
 
+=== changelog v1.3 ===
 
 v1.3.1
 - Added the Suggestion Edition pack by Elag422
@@ -98,7 +100,7 @@ import traceback
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import logging
 from discord.ui import Button, View
 
@@ -135,6 +137,25 @@ with open("Text/token.txt") as file:
     if(file.read().strip().endswith("P4")):
         test = True
         logging.warning("BACAP Bot initialized in TESTING.")
+
+# Initialize global variables at module level to prevent NameErrors and editor warnings
+advs = []
+adv_index = {}
+sorted_adv_names = []
+additional_adv_info = {}
+trophy_data = []
+trophy_index = {}
+adv_namespace = []
+all_addon_advs = []
+addon_advs = {}
+addon_adv_index = {}
+sorted_addon_adv_names = []
+addon_list = []
+addon_adv_namespace = []
+tier_mapper = {}
+tab_mapper = {}
+add_base_pack_note = False
+addon_children_list = []
 
 # Emotes for BACAP Bot Reloaded
 emotes = {
@@ -357,6 +378,11 @@ logging.basicConfig(level=logging.INFO)
 
 ## BOT STUFF
 
+def user_install_command(func):
+    app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)(func)
+    app_commands.user_install()(func)
+    return func
+
 # start bot
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 
@@ -372,6 +398,10 @@ async def on_ready():
     except Exception as e:
         logging.error("Uh oh! An error occured while syncing application commands:", e)
 
+    # Bot status :realisticcave:
+    if not status_loop.is_running():
+        status_loop.start()
+
     # receive sheet info to let bot actually use the api
     # stores into dict
     trophy_sheet_key = "1yGppfv2T5KPtFWzNq25RjlLyerbe-OjY_jnT04ON9iI"
@@ -384,6 +414,12 @@ async def on_ready():
     access_BACAP_addons()
 
     build_adv_icons()
+
+    o = open("Text/out2.txt", "w+")
+    o.write(json.dumps(advs, indent=4))
+    o.write("\n")
+    o.write(json.dumps(all_addon_advs, indent=4))
+    o.close()
 
     logging.info("BACAP Bot loaded and ready for use!")
     
@@ -420,6 +456,9 @@ async def on_message(message):
     # if message.content == "Nice!" and random.randint(1, 10) == 5:
     #     await message.channel.send("Nice!")
 
+    # if message.channel.id == 1317346365906620459:
+    #     await message.channel.send(f"{message.content}")
+        
     # 1 in 1,000 to contribute to #cave-cult
     if message.channel.id == 828607465188360223 and message.content == "Cave" and random.randint(1, 1000) == 69:
         await message.channel.send("Cave")
@@ -496,7 +535,7 @@ async def show_documentation(interaction: discord.Interaction, doc_search: str):
                 embed.add_field(name="❌ Image Error!",value="Image was not loaded properly!",inline=False)
                 logging.warning(f"{interaction.user} ({interaction.user.id})'s /doc command success failed to display image. IMAGE FILE: {image_name} | URL: attachment://{file.filename}")
 
-    except:
+    except Exception as e:
         ephemeral = True
         image_name = "command_failed.png"
         embed = discord.Embed(
@@ -1546,6 +1585,7 @@ you_have_rights = {407695710058971138, 131972834695184385, 360894618734428160, 5
 
 ## REFRESH ADVANCEMENT SHEET
 @bot.tree.command(name="refresh_advancements", description="Refreshes and reloads all advancements into bot.")
+@user_install_command
 async def refresh(interaction: discord.Interaction):
     logging.info(f"/refresh_advancements command was ran by {interaction.user} ({interaction.user.id})")
 
@@ -1575,6 +1615,7 @@ async def refresh(interaction: discord.Interaction):
 
 ## REFRESH TROPHY SHEET
 @bot.tree.command(name="refresh_trophies", description="Refreshes and reloads all trophies into bot.")
+@user_install_command
 async def refresh(interaction: discord.Interaction):
     logging.info(f"/refresh_trophies command was ran by {interaction.user} ({interaction.user.id})")
 
@@ -1597,12 +1638,26 @@ async def refresh(interaction: discord.Interaction):
         await interaction.followup.send(f"*Uh oh! An error occurred while reloading all trophies.*\nError: **{e}**")
 
 
-# # menacing bot status loop
-# bot_statuses = cycle([":realisiticcave:", "You're a clown!", "Use /advancement", "saladbowls is a loser"])
-#
-# @tasks.loop(seconds=600)
-# async def status_loop():
-#     await bot.change_presence(activity=discord.Game(next(bot_statuses)))
+# menacing bot status loop
+bot_statuses = [
+    ":realisticcave:", 
+    "You're a clown!", 
+    "Use /advancement", 
+    "saladbowls is a loser",
+    "/help me!",
+    "I'm inside your walls",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "Also play Assassin of Steve!",
+    "Reloading!",
+    "pflkl.sv/nrkty?m=omWQaf5GxX0",
+    "Make sure to play BACAP3!",
+    "How many advancements???",
+    "lasaga"
+]
+
+@tasks.loop(seconds=600)
+async def status_loop():
+    await bot.change_presence(activity=discord.Game(random.choice(bot_statuses)))
 
 # ADVANCEMENT AUTOCOMPLETE
 async def autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -1683,6 +1738,7 @@ async def generate_adv_embed(interaction: discord.Interaction, advancement: str)
 @bot.tree.command(name="advancement", description="Display an advancement of your choice")
 @app_commands.autocomplete(advancement_search=autocomplete)
 @app_commands.describe(advancement_search="Display an advancement of your choice!")
+@user_install_command
 async def get_advancement(interaction: discord.Interaction, advancement_search: str):
     logging.info(f"/advancement command was ran by {interaction.user} ({interaction.user.id}) Input: {advancement_search}")
     try:
@@ -1719,6 +1775,7 @@ async def addon_adv_autocomplete(interaction: discord.Interaction, current: str)
 @app_commands.autocomplete(addon=addon_autocomplete)
 @app_commands.autocomplete(advancement_search=addon_adv_autocomplete)
 @app_commands.describe(addon="The add-on you want to display an advancement from", advancement_search="Display an advancement of your choice!")
+@user_install_command
 async def get_addon_advancement(interaction: discord.Interaction, addon: str, advancement_search: str):
     logging.info(f"/addon_advancement command was ran by {interaction.user} ({interaction.user.id}) Input: {addon}, {advancement_search}")
     try:
@@ -1755,6 +1812,7 @@ async def get_addon_advancement(interaction: discord.Interaction, addon: str, ad
 @bot.tree.command(name="random", description="Displays a random advancement (supports add-ons)")
 @app_commands.autocomplete(addon=addon_autocomplete_with_all)
 @app_commands.describe(addon="Add-on to pick a random advancement from (leave blank to pick from the regular pack)")
+@user_install_command
 async def random_advancement(interaction: discord.Interaction, addon: str | None):
     logging.info(f"/random command was ran by {interaction.user} ({interaction.user.id}) Input: {addon}")
     try:
@@ -1798,6 +1856,7 @@ async def tab_autocomplete(interaction: discord.Interaction, current: str) -> li
 @bot.tree.command(name="tab", description="Lists all advancements from an advancement tab")
 @app_commands.autocomplete(tab=tab_autocomplete)
 @app_commands.describe(tab="The name of the tab you would like to list")
+@user_install_command
 async def tab(interaction: discord.Interaction, tab: str):
     logging.info(f"/tab command was ran by {interaction.user} ({interaction.user.id}) Input {tab}")
     tab = tab.strip()
@@ -1884,6 +1943,7 @@ async def help_autocomplete(interaction: discord.Interaction, current: str) -> l
 @bot.tree.command(name="help", description="Displays information about all available commands in this bot.")
 @app_commands.autocomplete(help=help_autocomplete)
 @app_commands.describe(help="The name of the command you would like information about.")
+@user_install_command
 async def help_command(interaction: discord.Interaction, help: str):
     logging.info(f"/help command was ran by {interaction.user} ({interaction.user.id}) Input {help}")
     pictures = {
@@ -1918,7 +1978,7 @@ async def help_command(interaction: discord.Interaction, help: str):
             embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /help command failed to display image. IMAGE FILE: {image_name}")
 
-    except:
+    except Exception as e:
         ephemeral = True
         embed = discord.Embed(
             title="❌ Error!",
@@ -2000,6 +2060,7 @@ async def version_autocomplete(interaction: discord.Interaction, current: str) -
 @bot.tree.command(name="versions", description="Displays older versions of BACAP and the compatible Minecraft version.")
 @app_commands.autocomplete(version=version_autocomplete)
 @app_commands.describe(version="The name of the BACAP version you want to display.")
+@user_install_command
 async def version_command(interaction: discord.Interaction, version: str):
     logging.info(f"/versions command was ran by {interaction.user} ({interaction.user.id}) Input: {version}")
 
@@ -2021,7 +2082,7 @@ async def version_command(interaction: discord.Interaction, version: str):
             embed.add_field(name="❌ Image Error!", value="Image was not loaded properly!", inline=False)
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /versions command failed to display image. IMAGE FILE: {image_name}")
 
-    except:
+    except Exception as e:
         ephemeral = True
         embed = discord.Embed(
             title="❌ Error!",
@@ -2044,6 +2105,7 @@ async def version_command(interaction: discord.Interaction, version: str):
 
 ## UPDATE COMMAND
 @bot.tree.command(name="update_world", description="Displays a prompt on how to update your world when a new BACAP version releases.")
+@user_install_command
 async def update_world_command(interaction: discord.Interaction):
     logging.info(f"/update_world command was ran by {interaction.user} ({interaction.user.id})")
 
@@ -2143,6 +2205,7 @@ async def riddle_autocomplete(interaction: discord.Interaction, current: str) ->
 @bot.tree.command(name="riddlemethis", description="Displays the solutions to each step in the \"Riddle Me This\" challenge.")
 @app_commands.autocomplete(riddle=riddle_autocomplete)
 @app_commands.describe(riddle="Which step you would like to display")
+@user_install_command
 async def riddle_command(interaction: discord.Interaction, riddle: str):
     logging.info(f"/riddlemethis command was ran by {interaction.user} ({interaction.user.id}) Input: {riddle}")
 
@@ -2227,6 +2290,12 @@ async def riddle_command(interaction: discord.Interaction, riddle: str):
             logging.warning(f"{interaction.user} ({interaction.user.id})'s /riddlemethis command failed to display image. IMAGE FILE: {image_name}")
 
         await interaction.response.send_message(embed=embed, ephemeral=True, file=file)
+
+@bot.tree.command(name="realisticcave", description="Realistic Cave")
+@user_install_command
+async def realisticcave(interaction: discord.Interaction):
+    logging.info(f"/realisticcaves command was ran by {interaction.user} ({interaction.user.id})")
+    await interaction.response.send_message("https://cdn.discordapp.com/attachments/1317346365906620459/1319402424070311966/1cavinator.png?")
 
 # get token and RUN
 with open("Text/token.txt") as file:
