@@ -291,8 +291,17 @@ logging.basicConfig(level=logging.INFO)
 ## BOT STUFF
 
 def user_install_command(func):
-    app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)(func)
-    app_commands.user_install()(func)
+    app_commands.allowed_installs(
+        guilds=True,
+        users=True
+    )(func)
+
+    app_commands.allowed_contexts(
+        guilds=True,
+        dms=True,
+        private_channels=True
+    )(func)
+
     return func
 
 # start bot
@@ -470,6 +479,7 @@ async def show_documentation(interaction: discord.Interaction, doc_search: str):
 @bot.tree.command(name="doc", description="Links you to any official BACAP documentation")
 @app_commands.describe(doc_search="Links you to any official BACAP documentation!")
 @app_commands.autocomplete(doc_search=doc_autocomplete)
+@user_install_command
 async def doc(interaction: discord.Interaction, doc_search: str):
     logging.info(f"/doc command was ran by {interaction.user} ({interaction.user.id}) Input: {doc_search}")
     await show_documentation(interaction, doc_search)
@@ -478,6 +488,7 @@ async def doc(interaction: discord.Interaction, doc_search: str):
 @bot.tree.command(name="documentation", description="Links you to any official BACAP documentation")
 @app_commands.describe(doc_search="Links you to any official BACAP documentation!")
 @app_commands.autocomplete(doc_search=doc_autocomplete)
+@user_install_command
 async def documentation(interaction: discord.Interaction, doc_search: str):
     logging.info(f"/documentation command was ran by {interaction.user} ({interaction.user.id}) Input: {doc_search}")
     await show_documentation(interaction, doc_search)
